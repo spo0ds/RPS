@@ -6,6 +6,7 @@ module rps::rps{
     use sui::balance::{Balance};
     use sui::sui::SUI;
     use sui::transfer;
+    use std::vector;
     use sui::dynamic_object_field as ofield;
     use sui::coin::{Self, Coin};
 
@@ -36,6 +37,11 @@ module rps::rps{
         // rps dynamically gets added
     }
 
+    struct FriendList has key {
+        id: UID,
+        address: vector<address>,
+    }
+
     struct RPSCap has key{
         id: UID, 
     }
@@ -51,7 +57,7 @@ module rps::rps{
         }, tx_context::sender(ctx));
     }
 
-     public entry fun createGame(challenger:Option<address>,message:Option<string::String>, player_one_move: vector<u8>,stakes:u64, coin: Coin<SUI>, type: string::String, gameList_object: &mut GameList, ctx: &mut TxContext){
+    public entry fun createGame(challenger:Option<address>,message:Option<string::String>, player_one_move: vector<u8>,stakes:u64, coin: Coin<SUI>, type: string::String, gameList_object: &mut GameList, ctx: &mut TxContext){
         assert!(stakes > 0, EZeroStakedNotAllowed);
         assert!(coin::value(&coin) == stakes, ENotStakedAmount);
         let rsp = RPS{
@@ -71,5 +77,17 @@ module rps::rps{
         let rsp_id = object::id(&rsp);
         ofield::add(&mut gameList_object.id, rsp_id, rsp);
         gameList_object.rps_game_count = gameList_object.rps_game_count + 1;
+    }
+
+    public entry fun addToMyFriendList(addresses: vector<address>, ctx: &mut TxContext){
+        let whitelist = FriendList{
+            id: object::new(ctx),
+            address: addresses,
+        };
+        transfer::transfer(whitelist, tx_context::sender(ctx));
+    }
+
+    public entry fun updateToMyFriendList(friendlist: &mut FriendList, addresses: vector<address>) {
+        vector::append(&mut friendlist.address, addresses); 
     }
 }
