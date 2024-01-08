@@ -1,6 +1,6 @@
 module rps::rps{
     use std::string;
-    use sui::object::{Self, UID};
+    use sui::object::{Self, UID, ID};
     use sui::tx_context::{Self, TxContext};
     use std::option::{Self, Option};
     use sui::balance::{Balance};
@@ -77,6 +77,19 @@ module rps::rps{
         let rsp_id = object::id(&rsp);
         ofield::add(&mut gameList_object.id, rsp_id, rsp);
         gameList_object.rps_game_count = gameList_object.rps_game_count + 1;
+    }
+
+     fun mutate_move(rps: &mut RPS, player_move: vector<u8>, coin:Coin<SUI>, challenger: address) {
+        rps.player_two_move = option::some(player_move);
+        rps.challenger = option::some(challenger);
+        coin::put(&mut rps.balance, coin); 
+    }
+
+    public entry fun play_game(child_id: ID, parent: &mut GameList, player_move:vector<u8>, coin:Coin<SUI>,ctx: &mut TxContext){
+         mutate_move(ofield::borrow_mut<ID, RPS>(
+            &mut parent.id,
+            child_id,
+        ), player_move, coin , tx_context::sender(ctx)); 
     }
 
     public entry fun addToMyFriendList(addresses: vector<address>, ctx: &mut TxContext){
