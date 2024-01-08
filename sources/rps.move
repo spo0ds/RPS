@@ -3,16 +3,18 @@ module rps::rps{
     use sui::object::{Self, UID, ID};
     use sui::tx_context::{Self, TxContext};
     use std::option::{Self, Option};
-    use sui::balance::{Balance};
+    use sui::balance::{Self, Balance};
     use sui::sui::SUI;
     use sui::transfer;
     use std::vector;
     use sui::dynamic_object_field as ofield;
     use sui::coin::{Self, Coin};
+    use std::hash;
 
-    // const ROCK: u8 = 0;
-    // const PAPER: u8 = 1;
-    // const SCISSORS: u8 = 2;
+    const ROCK: u8 = 0;
+    const PAPER: u8 = 1;
+    const SCISSORS: u8 = 2;
+    const ERROR: u8 = 6;
 
     const ENotStakedAmount: u64 = 3;
     const EZeroStakedNotAllowed : u64 = 4;
@@ -102,5 +104,57 @@ module rps::rps{
 
     public entry fun updateToMyFriendList(friendlist: &mut FriendList, addresses: vector<address>) {
         vector::append(&mut friendlist.address, addresses); 
+    }
+
+    public entry fun select_winner(rps: &mut RPS, salt_1: vector<u8>, salt_2: vector<u8>, ctx: &mut TxContext){
+        let RPS { 
+            id: _,
+            creator, 
+            challenger, 
+            message: _, 
+            player_one_move,
+            player_two_move,
+            winner: _,
+            stakes: _,
+            balance,
+            distributed: _,
+            type: _, 
+        } = rps;
+        let gesture_one = find_gesture(salt_1, player_one_move);
+        let gesture_two = find_gesture(salt_2, option::borrow(player_two_move)); 
+
+        let player1_wins = play(gesture_one, gesture_two);
+        let total_balance = balance::value(&rps.balance);
+        let coin = coin::take(&mut rps.balance, total_balance, ctx);
+        if(player1_wins){ 
+           transfer::public_transfer(coin, rps.creator);
+        } else{
+            transfer::public_transfer(coin, *(option::borrow(challenger)));
+        }; 
+
+    }
+
+    fun play(one: u8, two: u8): bool {
+        if (one == ROCK && two == SCISSORS) { true }
+        else if (one == PAPER && two == ROCK) { true }
+        else if (one == SCISSORS && two == PAPER) { true }
+        else { false }
+    }
+
+    fun find_gesture(salt: vector<u8>, hash: &vector<u8>): u8 {
+        if (hash(ROCK, salt) == *hash) {
+            ROCK
+        } else if (hash(PAPER, salt) == *hash) {
+            PAPER
+        } else if (hash(SCISSORS, salt) == *hash) {
+            SCISSORS
+        } else {
+           ERROR
+        }
+    }
+
+    fun hash(gesture: u8, salt: vector<u8>): vector<u8> {
+        vector::push_back(&mut salt, gesture);
+        hash::sha2_256(salt)
     }
 }
