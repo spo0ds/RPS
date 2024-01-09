@@ -1,0 +1,4 @@
+export let packageId = '0x233605ab69ad1682eed970e9a0b65030328da16feb868adcf180e5030477dccb';
+export let GameListId =  '0xcecc9ea9b754895516a647b92f9bccb481724ec010f0737214323e777aa5b300';
+export let RPSCapId =  '0x2b8ee5c6fcbb4309b67c58e6ea303c6ddcce233648698fdbcfe1a0f71d20d39c';
+export let RPSId = '0x4ae52208823cc750e0bf3d9ffce8e652e97975424dcd54b2e8bd3e9e0766891c';
