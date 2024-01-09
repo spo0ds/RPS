@@ -1,2 +1,5 @@
 build/
 Move.lock
+scripts/.env
+node_modules/
+scripts/node_modules/
