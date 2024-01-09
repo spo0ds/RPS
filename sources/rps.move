@@ -26,7 +26,7 @@ module rps::rps{
         challenger:Option<address>,
         message:Option<string::String>,
         player_one_move: vector<u8>,
-        player_two_move: Option<vector<u8>>,
+        player_two_move: Option<u8>,
         winner : Option<address>,
         stakes:u64,
         balance: Balance<SUI>,
@@ -82,13 +82,13 @@ module rps::rps{
         gameList_object.rps_game_count = gameList_object.rps_game_count + 1;
     }
 
-     fun mutate_move(rps: &mut RPS, player_move: vector<u8>, coin:Coin<SUI>, challenger: address) {
+     fun mutate_move(rps: &mut RPS, player_move: u8, coin:Coin<SUI>, challenger: address) {
         rps.player_two_move = option::some(player_move);
         rps.challenger = option::some(challenger);
         coin::put(&mut rps.balance, coin); 
     }
 
-    public entry fun play_game(child_id: ID, parent: &mut GameList, player_move:vector<u8>, coin:Coin<SUI>,ctx: &mut TxContext){
+    public entry fun play_game(child_id: ID, parent: &mut GameList, player_move:u8, coin:Coin<SUI>,ctx: &mut TxContext){
          mutate_move(ofield::borrow_mut<ID, RPS>(
             &mut parent.id,
             child_id,
@@ -107,38 +107,51 @@ module rps::rps{
         vector::append(&mut friendlist.address, addresses); 
     }
 
-    public entry fun select_winner(rps: &mut RPS, salt_1: vector<u8>, salt_2: vector<u8>, ctx: &mut TxContext){
+    public entry fun select_winner(rps: &mut RPS, salt_1: vector<u8>, gameList_object: &mut GameList, ctx: &mut TxContext){
         let RPS { 
             id: _,
-            creator, 
+            creator: _, 
             challenger, 
             message: _, 
             player_one_move,
             player_two_move,
             winner: _,
             stakes,
-            balance,
+            balance: _,
             distributed: _,
             type: _, 
         } = rps;
         let gesture_one = find_gesture(salt_1, player_one_move);
-        let gesture_two = find_gesture(salt_2, option::borrow(player_two_move)); 
-
-        let playerMove = play(gesture_one, gesture_two);
+        let playerMove = play(gesture_one, *option::borrow(player_two_move));
         let total_balance = balance::value(&rps.balance);
         let coin = coin::take(&mut rps.balance, total_balance, ctx);
         if (gesture_one == playerMove) {
-            // rps.winner = option::some(rps.creator);
+            mutate_winner(ofield::borrow_mut<ID, RPS>(
+            &mut gameList_object.id,
+            object::id(rps)
+            ), rps.creator); 
             transfer::public_transfer(coin, rps.creator);
-        }else if (gesture_two == playerMove){
-            // rps.winner = option::some(rps.challenger);
+        }else if (option::borrow(player_two_move) == &playerMove){
+            mutate_winner(ofield::borrow_mut<ID, RPS>(
+            &mut gameList_object.id,
+            object::id(rps)), *(option::borrow(challenger))); 
             transfer::public_transfer(coin, *(option::borrow(challenger)));
         }else{
             transfer::public_transfer(coin::split(&mut coin, *stakes, ctx), rps.creator);
-            // transfer::public_transfer(coin/2, rps.creator);
-            // transfer::public_transfer(coin/2, rps.creator);
-            // transfer::public_transfer(coin::take(borrow_mut(coin), stakes, ctx), rps.creator);
+            transfer::public_transfer(coin, *(option::borrow(challenger)));
+             mutate_distributed(ofield::borrow_mut<ID, RPS>(
+            &mut gameList_object.id,
+            object::id(rps))); 
         }
+    }
+
+    fun mutate_winner(rps: &mut RPS, winner: address) {
+        rps.winner = option::some(winner);
+        rps.distributed = true;
+    }
+
+    fun mutate_distributed(rps: &mut RPS) {
+        rps.distributed = true;
     }
 
     fun play(one: u8, two: u8):  u8{
