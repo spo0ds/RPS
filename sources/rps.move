@@ -41,10 +41,10 @@ module rps::rps{
         // rps dynamically gets added
     }
 
-    struct FriendList has key {
-        id: UID,
-        address: vector<address>,
-    }
+    // struct FriendList has key {
+    //     id: UID,
+    //     address: vector<address>,
+    // }
 
     struct RPSCap has key{
         id: UID, 
