@@ -15,6 +15,7 @@ module rps::rps{
     const PAPER: u8 = 1;
     const SCISSORS: u8 = 2;
     const ERROR: u8 = 6;
+    const NONE: u8 = 7;
 
     const ENotStakedAmount: u64 = 3;
     const EZeroStakedNotAllowed : u64 = 4;
@@ -115,7 +116,7 @@ module rps::rps{
             player_one_move,
             player_two_move,
             winner: _,
-            stakes: _,
+            stakes,
             balance,
             distributed: _,
             type: _, 
@@ -123,22 +124,28 @@ module rps::rps{
         let gesture_one = find_gesture(salt_1, player_one_move);
         let gesture_two = find_gesture(salt_2, option::borrow(player_two_move)); 
 
-        let player1_wins = play(gesture_one, gesture_two);
+        let playerMove = play(gesture_one, gesture_two);
         let total_balance = balance::value(&rps.balance);
         let coin = coin::take(&mut rps.balance, total_balance, ctx);
-        if(player1_wins){ 
-           transfer::public_transfer(coin, rps.creator);
-        } else{
+        if (gesture_one == playerMove) {
+            // rps.winner = option::some(rps.creator);
+            transfer::public_transfer(coin, rps.creator);
+        }else if (gesture_two == playerMove){
+            // rps.winner = option::some(rps.challenger);
             transfer::public_transfer(coin, *(option::borrow(challenger)));
-        }; 
-
+        }else{
+            transfer::public_transfer(coin::split(&mut coin, *stakes, ctx), rps.creator);
+            // transfer::public_transfer(coin/2, rps.creator);
+            // transfer::public_transfer(coin/2, rps.creator);
+            // transfer::public_transfer(coin::take(borrow_mut(coin), stakes, ctx), rps.creator);
+        }
     }
 
-    fun play(one: u8, two: u8): bool {
-        if (one == ROCK && two == SCISSORS) { true }
-        else if (one == PAPER && two == ROCK) { true }
-        else if (one == SCISSORS && two == PAPER) { true }
-        else { false }
+    fun play(one: u8, two: u8):  u8{
+        if (one == ROCK && two == SCISSORS) { ROCK }
+        else if (one == PAPER && two == ROCK) { PAPER }
+        else if (one == SCISSORS && two == PAPER) { SCISSORS }
+        else {NONE }
     }
 
     fun find_gesture(salt: vector<u8>, hash: &vector<u8>): u8 {
