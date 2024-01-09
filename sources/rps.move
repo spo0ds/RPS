@@ -19,6 +19,7 @@ module rps::rps{
 
     const ENotStakedAmount: u64 = 3;
     const EZeroStakedNotAllowed : u64 = 4;
+    const EGuestureFailed: u64 = 7;
 
     struct RPS has key,store{
         id: UID,
@@ -83,6 +84,7 @@ module rps::rps{
     }
 
      fun mutate_move(rps: &mut RPS, player_move: u8, coin:Coin<SUI>, challenger: address) {
+        assert!(coin::value(&coin) == rps.stakes, ENotStakedAmount);
         rps.player_two_move = option::some(player_move);
         rps.challenger = option::some(challenger);
         coin::put(&mut rps.balance, coin); 
@@ -95,59 +97,60 @@ module rps::rps{
         ), player_move, coin , tx_context::sender(ctx)); 
     }
 
-    public entry fun addToMyFriendList(addresses: vector<address>, ctx: &mut TxContext){
-        let whitelist = FriendList{
-            id: object::new(ctx),
-            address: addresses,
-        };
-        transfer::transfer(whitelist, tx_context::sender(ctx));
-    }
+    // public entry fun addToMyFriendList(addresses: vector<address>, ctx: &mut TxContext){
+    //     let whitelist = FriendList{
+    //         id: object::new(ctx),
+    //         address: addresses,
+    //     };
+    //     transfer::transfer(whitelist, tx_context::sender(ctx));
+    // }
 
-    public entry fun updateToMyFriendList(friendlist: &mut FriendList, addresses: vector<address>) {
-        vector::append(&mut friendlist.address, addresses); 
-    }
+    // public entry fun updateToMyFriendList(friendlist: &mut FriendList, addresses: vector<address>) {
+    //     vector::append(&mut friendlist.address, addresses); 
+    // }
 
-public entry fun select_winner(rps: &mut RPS, salt_1: vector<u8>, gameList_object: &mut GameList, ctx: &mut TxContext) {
-    let RPS {
-        id: _,
-        creator: _,
-        challenger,
-        message: _,
-        player_one_move,
-        player_two_move,
-        winner: _,
-        stakes,
-        balance: _,
-        distributed: _,
-        type: _,
-    } = rps;
+    public entry fun select_winner(rps: &mut RPS, salt_1: vector<u8>, gameList_object: &mut     GameList,   ctx: &mut TxContext) {
+            let RPS {
+                    id: _,
+                    creator: _,
+                    challenger,
+                    message: _,
+                    player_one_move,
+                    player_two_move,
+                    winner: _,
+                    stakes,
+                    balance: _,
+                    distributed: _,
+                    type: _,
+                } = rps;
 
-    let gesture_one = find_gesture(salt_1, player_one_move);
-    let playerMove = play(gesture_one, *option::borrow(player_two_move));
+            let gesture_one = find_gesture(salt_1, player_one_move);
+            assert!(gesture_one != ERROR, EGuestureFailed);
+            let playerMove = play(gesture_one, *option::borrow(player_two_move));
 
-    let challenger_address = *(option::borrow(challenger));
+            let challenger_address = *(option::borrow(challenger));
 
-    let total_balance = balance::value(&rps.balance);
-    let coin = coin::take(&mut rps.balance, total_balance, ctx);
+            let total_balance = balance::value(&rps.balance);
+            let coin = coin::take(&mut rps.balance, total_balance, ctx);
 
-    if (gesture_one == playerMove) {
-        mutate_winner(
-            ofield::borrow_mut<ID, RPS>(&mut gameList_object.id, object::id(rps)),
-            rps.creator,
-        );
-        transfer::public_transfer(coin, rps.creator);
-    } else if (option::borrow(player_two_move) == &playerMove) {
-        mutate_winner(
-            ofield::borrow_mut<ID, RPS>(&mut gameList_object.id, object::id(rps)),
-            challenger_address,
-        );
-        transfer::public_transfer(coin, challenger_address);
-    } else {
-        transfer::public_transfer(coin::split(&mut coin, *stakes, ctx), rps.creator);
-        transfer::public_transfer(coin, challenger_address);
-        mutate_distributed(ofield::borrow_mut<ID, RPS>(&mut gameList_object.id, object::id(rps)));
-    }
-}
+            if (gesture_one == playerMove) {
+                mutate_winner(
+                    ofield::borrow_mut<ID, RPS>(&mut gameList_object.id, object::id(rps)),
+                    rps.creator,
+                    );
+                transfer::public_transfer(coin, rps.creator);
+            } else if (option::borrow(player_two_move) == &playerMove) {
+                mutate_winner(
+                    ofield::borrow_mut<ID, RPS>(&mut gameList_object.id, object::id(rps)),
+                    challenger_address,
+                    );
+                transfer::public_transfer(coin, challenger_address);
+            } else {
+                transfer::public_transfer(coin::split(&mut coin, *stakes, ctx), rps.creator);
+                transfer::public_transfer(coin, challenger_address);
+                mutate_distributed(ofield::borrow_mut<ID, RPS>(&mut gameList_object.id, object::id(rps)));
+            }
+        }
 
 
     fun mutate_winner(rps: &mut RPS, winner: address) {
