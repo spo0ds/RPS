@@ -109,54 +109,12 @@ module rps::rps{
     //     vector::append(&mut friendlist.address, addresses); 
     // }
 
-    // public entry fun select_winner(child_id: ID, rps: &mut RPS, gameList_object: &mut GameList,ctx: &mut TxContext) {
-    //         let RPS {
-    //                 id: _,
-    //                 creator: _,
-    //                 challenger,
-    //                 message: _,
-    //                 player_one_move,
-    //                 player_two_move,
-    //                 winner: _,
-    //                 stakes,
-    //                 balance: _,
-    //                 distributed: _,
-    //                 type: _,
-    //             } = rps;
-
-    //         let gesture_one = *player_one_move;
-    //         assert!(gesture_one != ERROR, EGuestureFailed);
-    //         let playerMove = play(gesture_one, *option::borrow(player_two_move));
-
-    //         let challenger_address = *(option::borrow(challenger));
-
-    //         let total_balance = balance::value(&rps.balance);
-    //         let coin = coin::take(&mut rps.balance, total_balance, ctx);
-
-    //         if (gesture_one == playerMove) {
-    //             mutate_winner(
-    //                 ofield::borrow_mut<ID, RPS>(&mut gameList_object.id, child_id),
-    //                 rps.creator,
-    //                 );
-    //             transfer::public_transfer(coin, rps.creator);
-    //         } else if (option::borrow(player_two_move) == &playerMove) {
-    //             mutate_winner(
-    //                 ofield::borrow_mut<ID, RPS>(&mut gameList_object.id, child_id),
-    //                 challenger_address,
-    //                 );
-    //             transfer::public_transfer(coin, challenger_address);
-    //         } else {
-    //             transfer::public_transfer(coin::split(&mut coin, *stakes, ctx), rps.creator);
-    //             transfer::public_transfer(coin, challenger_address);
-    //             mutate_distributed(ofield::borrow_mut<ID, RPS>(&mut gameList_object.id, child_id));
-    //         }
-    //     }
     
     public entry fun select_winner(child_id: ID, gameList_object: &mut GameList,ctx: &mut TxContext) {
         mutate_winner(
             ofield::borrow_mut<ID, RPS>(&mut gameList_object.id, child_id),
             ctx,
-            );
+        );
     }
 
 
@@ -176,37 +134,41 @@ module rps::rps{
                 } = rps;
 
         let gesture_one = *player_one_move;
+        let gesture_two = *option::borrow(player_two_move);
         assert!(gesture_one != ERROR, EGuestureFailed);
         let playerMove = play(gesture_one, *option::borrow(player_two_move));
-
+        let playerMove2 = play(*option::borrow(player_two_move), gesture_one);
         let challenger_address = *(option::borrow(challenger));
 
         let total_balance = balance::value(&rps.balance);
         let coin = coin::take(&mut rps.balance, total_balance, ctx);
-        if (gesture_one == playerMove) {
+        if (playerMove) {
+                 // let temp_winner = option::some(rps.creator);
                 rps.winner = option::some(rps.creator);
                 transfer::public_transfer(coin, rps.creator);
                 rps.distributed = true;
-            } else if (option::borrow(player_two_move) == &playerMove) {
-                rps.winner = option::some(challenger_address); 
+            } else if (playerMove2) {
+                rps.winner = option::some(challenger_address);
                 transfer::public_transfer(coin, challenger_address);
                 rps.distributed = true;
-            } else {
+         } 
+         else {
                 transfer::public_transfer(coin::split(&mut coin, *stakes, ctx), rps.creator);
                 transfer::public_transfer(coin, challenger_address);
                 rps.distributed = true; 
         } 
     }
 
+
     fun mutate_distributed(rps: &mut RPS) {
         rps.distributed = true;
     }
 
-    fun play(one: u8, two: u8):  u8{
-        if (one == ROCK && two == SCISSORS) { ROCK }
-        else if (one == PAPER && two == ROCK) { PAPER }
-        else if (one == SCISSORS && two == PAPER) { SCISSORS }
-        else {NONE }
+    fun play(one: u8, two: u8): bool{
+        if (one == ROCK && two == SCISSORS) { true }
+        else if (one == PAPER && two == ROCK) { true }
+        else if (one == SCISSORS && two == PAPER) {true }
+        else { false }
     }
 
     // fun find_gesture(salt: vector<u8>, hash: &vector<u8>): u8 {
