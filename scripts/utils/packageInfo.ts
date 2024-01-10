@@ -1,4 +1,4 @@
-export let packageId = '0x3ed13fc8ead67eb01be1dc281eec82b34ab542da0e274b0dc71b5c75584e7435';
-export let GameListId =  '0xaf921e3799cca13f2f0e8bbdc9f6070759b5de53b3d369b0a17cd7ef237669c5';
-export let RPSCapId =  '0xd351e4ebf1e06844f8091283f88ae0cffc01bcdcf4cf41ffd4148e28a471cc0d';
-export let RPSId = '0x94ad46ef2d4b387d6dcc0074720f3f1511f2e09acefd483ab3f2043535aa5176';
+export let packageId = '0xb088168d77d4b908d6c603510906216cf9dd136d1d70e9a81152e427de0f2c38';
+export let GameListId = '0xd1ea9cd6f90a6375e74e1600f4265d411523e8adfe4a59262c190e609927620d';
+export let RPSCapId = '0x1a5ff81c0a5b44bc957051bdbf443dfff8bd0c6b05b82c74ee87f6fc68f23a54';
+export let RPSId = '0x694d536b14e43d6b468b4b35aefa811a485457493f3cf6b2d833dcf32ef34797';
