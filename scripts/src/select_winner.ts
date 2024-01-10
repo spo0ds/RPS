@@ -12,8 +12,8 @@ async function play_rps_game() {
     tx.moveCall({
         target: `${packageId}::rps::select_winner`,
         arguments: [
-            tx.pure.address('0x4ae52208823cc750e0bf3d9ffce8e652e97975424dcd54b2e8bd3e9e0766891c'),
-            tx.object(RPSId),
+            tx.pure.address(RPSId),
+            //tx.object(RPSId),
             tx.object(GameListId),
         ]
     });
