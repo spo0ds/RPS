@@ -14,12 +14,10 @@ module rps::rps{
     const ROCK: u8 = 0;
     const PAPER: u8 = 1;
     const SCISSORS: u8 = 2;
-    const ERROR: u8 = 5;
-    const NONE: u8 = 6;
 
     const ENotStakedAmount: u64 = 3;
     const EZeroStakedNotAllowed : u64 = 4;
-    const EGuestureFailed: u64 = 7;
+    const EGuestureFailed: u64 = 5;
 
     struct RPS has key,store{
         id: UID,
@@ -121,7 +119,7 @@ module rps::rps{
     fun mutate_winner(rps: &mut RPS, ctx: &mut TxContext) {
         let RPS {
                     id: _,
-                    creator,
+                    creator:_,
                     challenger,
                     message: _,
                     player_one_move,
@@ -135,34 +133,25 @@ module rps::rps{
 
         let gesture_one = *player_one_move;
         let gesture_two = *option::borrow(player_two_move);
-        assert!(gesture_one != ERROR, EGuestureFailed);
-        let playerMove = play(gesture_one, *option::borrow(player_two_move));
-        let playerMove2 = play(*option::borrow(player_two_move), gesture_one);
-        let challenger_address = *(option::borrow(challenger));
-
         let total_balance = balance::value(&rps.balance);
         let coin = coin::take(&mut rps.balance, total_balance, ctx);
-        if (playerMove) {
-                 // let temp_winner = option::some(rps.creator);
+        let challenger_address = *(option::borrow(challenger));
+        if (gesture_one == gesture_two){
+            transfer::public_transfer(coin::split(&mut coin, *stakes, ctx), rps.creator);
+            transfer::public_transfer(coin, challenger_address);
+        }else{
+            let playerMove = play(gesture_one, *option::borrow(player_two_move));
+            if (playerMove) {
                 rps.winner = option::some(rps.creator);
                 transfer::public_transfer(coin, rps.creator);
-                rps.distributed = true;
-            } else if (playerMove2) {
+            }else{
                 rps.winner = option::some(challenger_address);
                 transfer::public_transfer(coin, challenger_address);
-                rps.distributed = true;
-         } 
-         else {
-                transfer::public_transfer(coin::split(&mut coin, *stakes, ctx), rps.creator);
-                transfer::public_transfer(coin, challenger_address);
-                rps.distributed = true; 
-        } 
+            };
+        };
+        rps.distributed = true; 
     }
 
-
-    fun mutate_distributed(rps: &mut RPS) {
-        rps.distributed = true;
-    }
 
     fun play(one: u8, two: u8): bool{
         if (one == ROCK && two == SCISSORS) { true }
