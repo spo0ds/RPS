@@ -4,14 +4,14 @@ import getExecStuff from '../utils/execstuff';
 import { packageId, RPSId, GameListId } from '../utils/packageInfo';
 dotenv.config();
 
-async function play_rps_game() {
+async function cancel_game() {
     const { keypair, client } = getExecStuff();
     const tx = new TransactionBlock();
     tx.moveCall({
         target: `${packageId}::rps::cancel_game`,
         arguments: [
             tx.object(GameListId),
-            tx.pure.address(RPSId),
+            tx.pure.address(RPSId)
         ]
     });
     const result = await client.signAndExecuteTransactionBlock({
@@ -20,5 +20,4 @@ async function play_rps_game() {
     });
     console.log({ result });
 }
-
-play_rps_game();
+cancel_game();
