@@ -18,13 +18,14 @@ module rps::rps{
     const ENotStakedAmount: u64 = 3;
     const EZeroStakedNotAllowed : u64 = 4;
     const EGuestureFailed: u64 = 5;
+    const EError: u8 = 6;
 
     struct RPS has key,store{
         id: UID,
         creator:address,
         challenger:Option<address>,
         message:Option<string::String>,
-        player_one_move: u8,
+        player_one_move: vector<u8>,
         player_two_move: Option<u8>,
         winner : Option<address>,
         stakes:u64,
@@ -59,7 +60,7 @@ module rps::rps{
         }, tx_context::sender(ctx));
     }
 
-    public entry fun createGame(challenger:Option<address>,message:Option<string::String>, player_one_move: u8,stakes:u64, coin: Coin<SUI>, type: string::String, gameList_object: &mut GameList, ctx: &mut TxContext){
+    public entry fun createGame(challenger:Option<address>,message:Option<string::String>, player_one_move: vector<u8>,stakes:u64, coin: Coin<SUI>, type: string::String, gameList_object: &mut GameList, ctx: &mut TxContext){
         assert!(stakes > 0, EZeroStakedNotAllowed);
         assert!(coin::value(&coin) == stakes, ENotStakedAmount);
         let rsp = RPS{
@@ -108,21 +109,22 @@ module rps::rps{
     // }
 
     
-    public entry fun select_winner(child_id: ID, gameList_object: &mut GameList,ctx: &mut TxContext) {
+    public entry fun select_winner(child_id: ID, salt:vector<u8> ,gameList_object: &mut GameList,ctx: &mut TxContext) {
         mutate_winner(
             ofield::borrow_mut<ID, RPS>(&mut gameList_object.id, child_id),
+            salt,
             ctx,
         );
     }
 
 
-    fun mutate_winner(rps: &mut RPS, ctx: &mut TxContext) {
+    fun mutate_winner(rps: &mut RPS, salt: vector<u8>, ctx: &mut TxContext) {
         let RPS {
                     id: _,
                     creator:_,
                     challenger,
                     message: _,
-                    player_one_move,
+                    player_one_move: _,
                     player_two_move,
                     winner: _,
                     stakes,
@@ -131,7 +133,8 @@ module rps::rps{
                     type: _,
                 } = rps;
 
-        let gesture_one = *player_one_move;
+        //let gesture_one = *player_one_move;
+        let gesture_one = find_gesture(salt, &rps.player_one_move);
         let gesture_two = *option::borrow(player_two_move);
         let total_balance = balance::value(&rps.balance);
         let coin = coin::take(&mut rps.balance, total_balance, ctx);
@@ -141,6 +144,7 @@ module rps::rps{
             transfer::public_transfer(coin, challenger_address);
         }else{
             let playerMove = play(gesture_one, *option::borrow(player_two_move));
+            let challenger_address = *(option::borrow(challenger));
             if (playerMove) {
                 rps.winner = option::some(rps.creator);
                 transfer::public_transfer(coin, rps.creator);
@@ -160,20 +164,20 @@ module rps::rps{
         else { false }
     }
 
-    // fun find_gesture(salt: vector<u8>, hash: &vector<u8>): u8 {
-    //     if (hash(ROCK, salt) == *hash) {
-    //         ROCK
-    //     } else if (hash(PAPER, salt) == *hash) {
-    //         PAPER
-    //     } else if (hash(SCISSORS, salt) == *hash) {
-    //         SCISSORS
-    //     } else {
-    //        ERROR
-    //     }
-    // }
+    fun find_gesture(salt: vector<u8>, hash: &vector<u8>): u8 {
+        if (hash(ROCK, salt) == *hash) {
+            ROCK
+        } else if (hash(PAPER, salt) == *hash) {
+            PAPER
+        } else if (hash(SCISSORS, salt) == *hash) {
+            SCISSORS
+        } else {
+           EError
+        }
+    }
 
-    // fun hash(gesture: u8, salt: vector<u8>): vector<u8> {
-    //     vector::push_back(&mut salt, gesture);
-    //     hash::sha2_256(salt)
-    // }
+    fun hash(gesture: u8, salt: vector<u8>): vector<u8> {
+        vector::push_back(&mut salt, gesture);
+        hash::sha2_256(salt)
+    }
 }
