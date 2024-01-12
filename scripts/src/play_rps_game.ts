@@ -15,7 +15,7 @@ async function play_rps_game(amount: number ) {
         arguments: [
             tx.pure.address(RPSId),
             tx.object(GameListId),
-            tx.pure.u8(1),
+            tx.pure.u8(0),
             coin
         ]
     });
