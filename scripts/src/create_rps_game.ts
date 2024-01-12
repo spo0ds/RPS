@@ -31,6 +31,7 @@ async function create_rps_game(amount: number) {
    const hashDigest = sha256(stringToHex("ram", 0));
    console.log(`hashDigest: ${hashDigest}`);
    console.log(typeof hashDigest);
+ // const hashDigest = "c6130d0f59a390c51910707fba40f1d1013054be19e7a87a7294e15164c85992";
     const { keypair, client } = getExecStuff();
     const tx = new TransactionBlock();
     const coin = tx.splitCoins(tx.gas, [tx.pure(amount)]);
