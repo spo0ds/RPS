@@ -19,6 +19,7 @@ module rps::rps{
     const EZeroStakedNotAllowed : u64 = 4;
     const EGuestureFailed: u64 = 5;
     const EError: u8 = 6;
+    const ENotGameCreator : u64 = 7;
 
     struct RPS has key,store{
         id: UID,
@@ -59,6 +60,8 @@ module rps::rps{
             id: object::new(ctx)
         }, tx_context::sender(ctx));
     }
+
+    
 
     public entry fun createGame(challenger:Option<address>,message:Option<string::String>, player_one_move: vector<u8>,stakes:u64, coin: Coin<SUI>, type: string::String, gameList_object: &mut GameList, ctx: &mut TxContext){
         assert!(stakes > 0, EZeroStakedNotAllowed);
@@ -133,7 +136,6 @@ module rps::rps{
                     type: _,
                 } = rps;
 
-        //let gesture_one = *player_one_move;
         let gesture_one = find_gesture(salt, &rps.player_one_move);
         let gesture_two = *option::borrow(player_two_move);
         let total_balance = balance::value(&rps.balance);
@@ -180,4 +182,44 @@ module rps::rps{
         vector::push_back(&mut salt, gesture);
         hash::sha2_256(salt)
     }
+
+    // entry public fun cancel_game(parent: &mut GameList, child_id: ID, ctx: &mut TxContext) {
+    //     let RPS {
+    //         id,
+    //         creator,
+    //         challenger: _,
+    //         message: _,
+    //         player_one_move: _,
+    //         player_two_move: _,
+    //         winner: _,
+    //         stakes: _,
+    //         balance,
+    //         distributed: _,
+    //         type: _,
+    //     } = ofield::borrow_mut<ID, RPS>(&mut parent.id, child_id);
+    //     assert!(*creator == tx_context::sender(ctx), ENotGameCreator);
+    //     let withdrawn_balance = balance::withdraw_all(balance);
+    //     sui::transfer::public_transfer(coin::from_balance(withdrawn_balance, ctx), *creator); 
+    // }
+
+    entry public fun cancel_game(parent: &mut GameList, child_id: ID, ctx: &mut TxContext) {
+        let RPS {
+            id,
+            creator,
+            challenger: _,
+            message: _,
+            player_one_move: _,
+            player_two_move: _,
+            winner: _,
+            stakes: _,
+            balance,
+            distributed: _,
+            type: _,
+        } = ofield::remove(&mut parent.id, child_id);
+        assert!(creator == tx_context::sender(ctx), 9);
+        let coin = sui::coin::from_balance(balance, ctx);
+        sui::transfer::public_transfer(coin, creator);
+        object::delete(id);
+    }
+
 }
