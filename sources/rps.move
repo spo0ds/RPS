@@ -180,4 +180,64 @@ module rps::rps{
         vector::push_back(&mut salt, gesture);
         hash::sha2_256(salt)
     }
+
+     public entry fun cancel_game(parent: &mut GameList, child_id: ID,ctx: &mut TxContext) {
+        // let RPS {
+        //             id,
+        //             creator,
+        //             challenger:_,
+        //             message: _,
+        //             player_one_move:_,
+        //             player_two_move:_,
+        //             winner: _,
+        //             stakes:_,
+        //             balance,
+        //             distributed: _,
+        //             type: _,
+        //         } = ofield::remove<ID, RPS>(
+        //     &mut parent.id,
+        //     child_id,
+        // );  
+        let RPS {
+                    id,
+                    creator,
+                    challenger:_,
+                    message: _,
+                    player_one_move:_,
+                    player_two_move:_,
+                    winner: _,
+                    stakes:_,
+                    balance,
+                    distributed: _,
+                    type: _,
+                } = ofield::borrow_mut<ID, RPS>(
+            &mut parent.id,
+            child_id,
+        );  
+        assert!(*creator == tx_context::sender(ctx), ENotGameCreator);
+        let total_balance = balance::value(&balance);
+        let coin = coin::take(&mut balance, total_balance, ctx);
+        // sui::transfer::public_transfer(
+        //             coin::from_balance(*balance, ctx),
+        //             *creator,
+        //         );
+         transfer::public_transfer(coin, *creator);
+        // let RPS {
+        //             id,
+        //             creator:_,
+        //             challenger:_,
+        //             message: _,
+        //             player_one_move:_,
+        //             player_two_move:_,
+        //             winner: _,
+        //             stakes:_,
+        //             balance:_,
+        //             distributed: _,
+        //             type: _,
+        //         } = ofield::remove<ID, RPS>(
+        //     &mut parent.id,
+        //     child_id,
+        // );  
+        // object::delete(id);
+    }
 }
