@@ -14,17 +14,16 @@ module rps::rps{
     const ROCK: u8 = 0;
     const PAPER: u8 = 1;
     const SCISSORS: u8 = 2;
+    const EHashNotMatched: u8 = 3;
 
     const ENotStakedAmount: u64 = 3;
     const EZeroStakedNotAllowed : u64 = 4;
-    const EGuestureFailed: u64 = 5;
-    const EError: u8 = 6;
-    const ENotGameCreator : u64 = 7;
-    const EFriendNotPresent: u64 = 8;
-    const ENotFriend: u64 = 12; 
-    const ENotChallenger: u64 = 13; 
+    const ENotFriend: u64 = 5; 
+    const EFriendNotPresent: u64 = 6;
+    const ENotChallenger: u64 = 7; 
+    const EGameFinishedAlready: u64 = 8;
+    const ENotCreator: u64 = 9;
 
-    const FREEFORALL: u8 = 9;
     const FRIENDONLY: u8 = 10;
     const ONEONONE: u8 = 11;
 
@@ -90,32 +89,28 @@ module rps::rps{
             distributed: false,
             type: type,
         };
-
         let rsp_id = object::id(&rsp);
         ofield::add(&mut gameList_object.id, rsp_id, rsp);
         gameList_object.rps_game_count = gameList_object.rps_game_count + 1;
     }
 
     fun mutate_move(rps: &mut RPS, player_move: u8, coin:Coin<SUI>, friendlist: & FriendList, challenger: address) {
+        assert!(coin::value(&coin) == rps.stakes, ENotStakedAmount);
+        assert!(rps.distributed == true, EGameFinishedAlready);
         if (rps.type == FRIENDONLY) {
-            assert!(coin::value(&coin) == rps.stakes, ENotStakedAmount);
-            rps.player_two_move = option::some(player_move);
-            rps.challenger = option::some(challenger);
             assert!(vector::contains(&friendlist.address, &challenger) == true, ENotFriend);
-            coin::put(&mut rps.balance, coin);
+            rps.challenger = option::some(challenger); 
+            rps.player_two_move = option::some(player_move);      
         }
         else if(rps.type == ONEONONE) {
-            assert!(coin::value(&coin) == rps.stakes, ENotStakedAmount);
             assert!(rps.challenger == option::some(challenger), ENotChallenger);
             rps.player_two_move = option::some(player_move);
-            coin::put(&mut rps.balance, coin);
         }
         else {
-            assert!(coin::value(&coin) == rps.stakes, ENotStakedAmount);
-            rps.player_two_move = option::some(player_move);
             rps.challenger = option::some(challenger);
-            coin::put(&mut rps.balance, coin);
-        } 
+            rps.player_two_move = option::some(player_move);
+        };
+        coin::put(&mut rps.balance, coin);
     }
 	 
 
@@ -146,7 +141,7 @@ module rps::rps{
         vector::remove(&mut friendlist.address, index);
     }
     
-    public entry fun select_winner(child_id: ID, salt:vector<u8> ,gameList_object: &mut GameList,ctx: &mut TxContext) {
+    public entry fun select_winner(_cap: &RPSCap,child_id: ID, salt:vector<u8> ,gameList_object: &mut GameList,ctx: &mut TxContext) {
         mutate_winner(
             ofield::borrow_mut<ID, RPS>(&mut gameList_object.id, child_id),
             salt,
@@ -169,7 +164,6 @@ module rps::rps{
                     distributed: _,
                     type: _,
                 } = rps;
-
         let gesture_one = find_gesture(salt, &rps.player_one_move);
         let gesture_two = *option::borrow(player_two_move);
         let total_balance = balance::value(&rps.balance);
@@ -208,7 +202,7 @@ module rps::rps{
         } else if (hash(SCISSORS, salt) == *hash) {
             SCISSORS
         } else {
-           EError
+           EHashNotMatched
         }
     }
 
@@ -228,13 +222,13 @@ module rps::rps{
             winner: _,
             stakes: _,
             balance,
-            distributed: _,
-            type: _,
+            distributed,
+            type:_,
         } = ofield::remove(&mut parent.id, child_id);
-        assert!(creator == tx_context::sender(ctx), 9);
+        assert!(creator == tx_context::sender(ctx), ENotCreator);
+        assert!(distributed == false, EGameFinishedAlready);
         let coin = sui::coin::from_balance(balance, ctx);
         sui::transfer::public_transfer(coin, creator);
         object::delete(id);
     }
-
 }
