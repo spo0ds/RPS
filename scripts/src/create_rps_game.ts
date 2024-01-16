@@ -38,12 +38,12 @@ async function create_rps_game(amount: number) {
     tx.moveCall({
         target: `${packageId}::rps::createGame`,
         arguments: [
-            tx.pure.string(''),
+            tx.pure([]),
             tx.pure.string(''),
             tx.pure(Array.from(hashDigest)),
             tx.pure.u64(10000000),
             coin,
-            tx.pure.string('everyone'),
+            tx.pure.u8(10),
             tx.object(GameListId),
         ]
     });
