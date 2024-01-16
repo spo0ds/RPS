@@ -20,6 +20,13 @@ module rps::rps{
     const EGuestureFailed: u64 = 5;
     const EError: u8 = 6;
     const ENotGameCreator : u64 = 7;
+    const EFriendNotPresent: u64 = 8;
+    const ENotFriend: u64 = 12; 
+    const ENotChallenger: u64 = 13; 
+
+    const FREEFORALL: u8 = 9;
+    const FRIENDONLY: u8 = 10;
+    const ONEONONE: u8 = 11;
 
     struct RPS has key,store{
         id: UID,
@@ -32,7 +39,7 @@ module rps::rps{
         stakes:u64,
         balance: Balance<SUI>,
         distributed: bool,
-        type: string::String,
+        type: u8,
     }
 
     struct GameList has key{
@@ -41,10 +48,14 @@ module rps::rps{
         // rps dynamically gets added
     }
 
-    // struct FriendList has key {
-    //     id: UID,
-    //     address: vector<address>,
-    // }
+    struct FriendList has key {
+        id: UID,
+        address: vector<address>,
+    }
+
+    struct FriendCap has key{
+        id: UID, 
+    }
 
     struct RPSCap has key{
         id: UID, 
@@ -63,7 +74,7 @@ module rps::rps{
 
     
 
-    public entry fun createGame(challenger:Option<address>,message:Option<string::String>, player_one_move: vector<u8>,stakes:u64, coin: Coin<SUI>, type: string::String, gameList_object: &mut GameList, ctx: &mut TxContext){
+    public entry fun createGame(challenger:Option<address>,message:Option<string::String>, player_one_move: vector<u8>,stakes:u64, coin: Coin<SUI>, type: u8, gameList_object: &mut GameList, ctx: &mut TxContext){
         assert!(stakes > 0, EZeroStakedNotAllowed);
         assert!(coin::value(&coin) == stakes, ENotStakedAmount);
         let rsp = RPS{
@@ -85,32 +96,55 @@ module rps::rps{
         gameList_object.rps_game_count = gameList_object.rps_game_count + 1;
     }
 
-     fun mutate_move(rps: &mut RPS, player_move: u8, coin:Coin<SUI>, challenger: address) {
-        assert!(coin::value(&coin) == rps.stakes, ENotStakedAmount);
-        rps.player_two_move = option::some(player_move);
-        rps.challenger = option::some(challenger);
-        coin::put(&mut rps.balance, coin); 
+    fun mutate_move(rps: &mut RPS, player_move: u8, coin:Coin<SUI>, friendlist: & FriendList, challenger: address) {
+        if (rps.type == FRIENDONLY) {
+            assert!(coin::value(&coin) == rps.stakes, ENotStakedAmount);
+            rps.player_two_move = option::some(player_move);
+            rps.challenger = option::some(challenger);
+            assert!(vector::contains(&friendlist.address, &challenger) == true, ENotFriend);
+            coin::put(&mut rps.balance, coin);
+        }
+        else if(rps.type == ONEONONE) {
+            assert!(coin::value(&coin) == rps.stakes, ENotStakedAmount);
+            assert!(rps.challenger == option::some(challenger), ENotChallenger);
+            rps.player_two_move = option::some(player_move);
+            coin::put(&mut rps.balance, coin);
+        }
+        else {
+            assert!(coin::value(&coin) == rps.stakes, ENotStakedAmount);
+            rps.player_two_move = option::some(player_move);
+            rps.challenger = option::some(challenger);
+            coin::put(&mut rps.balance, coin);
+        } 
     }
+	 
 
-    public entry fun play_game(child_id: ID, parent: &mut GameList, player_move:u8, coin:Coin<SUI>,ctx: &mut TxContext){
+    public entry fun play_game(child_id: ID, parent: &mut GameList, player_move:u8, coin:Coin<SUI>, friendlist: & FriendList, ctx: &mut TxContext){
          mutate_move(ofield::borrow_mut<ID, RPS>(
             &mut parent.id,
             child_id,
-        ), player_move, coin , tx_context::sender(ctx)); 
+        ), player_move, coin , friendlist, tx_context::sender(ctx)); 
     }
 
-    // public entry fun addToMyFriendList(addresses: vector<address>, ctx: &mut TxContext){
-    //     let whitelist = FriendList{
-    //         id: object::new(ctx),
-    //         address: addresses,
-    //     };
-    //     transfer::transfer(whitelist, tx_context::sender(ctx));
-    // }
+    public entry fun createFriendlist(ctx:&mut TxContext){
+         transfer::transfer(FriendCap{
+            id: object::new(ctx)
+        }, tx_context::sender(ctx));
+        transfer::share_object(FriendList{
+            id: object::new(ctx),
+            address: vector::empty(),
+        });
+    }
 
-    // public entry fun updateToMyFriendList(friendlist: &mut FriendList, addresses: vector<address>) {
-    //     vector::append(&mut friendlist.address, addresses); 
-    // }
+    public entry fun updateToMyFriendList(_cap:&FriendCap, friendlist: &mut FriendList, addresses: vector<address>) {
+        vector::append(&mut friendlist.address, addresses); 
+    }
 
+    public entry fun removeFriend(_cap: &FriendCap, friendlist: &mut FriendList, friendAddress: address) {
+        let (found, index) = vector::index_of(&friendlist.address, &friendAddress);
+        assert!(found, EFriendNotPresent);
+        vector::remove(&mut friendlist.address, index);
+    }
     
     public entry fun select_winner(child_id: ID, salt:vector<u8> ,gameList_object: &mut GameList,ctx: &mut TxContext) {
         mutate_winner(
@@ -182,25 +216,6 @@ module rps::rps{
         vector::push_back(&mut salt, gesture);
         hash::sha2_256(salt)
     }
-
-    // entry public fun cancel_game(parent: &mut GameList, child_id: ID, ctx: &mut TxContext) {
-    //     let RPS {
-    //         id,
-    //         creator,
-    //         challenger: _,
-    //         message: _,
-    //         player_one_move: _,
-    //         player_two_move: _,
-    //         winner: _,
-    //         stakes: _,
-    //         balance,
-    //         distributed: _,
-    //         type: _,
-    //     } = ofield::borrow_mut<ID, RPS>(&mut parent.id, child_id);
-    //     assert!(*creator == tx_context::sender(ctx), ENotGameCreator);
-    //     let withdrawn_balance = balance::withdraw_all(balance);
-    //     sui::transfer::public_transfer(coin::from_balance(withdrawn_balance, ctx), *creator); 
-    // }
 
     entry public fun cancel_game(parent: &mut GameList, child_id: ID, ctx: &mut TxContext) {
         let RPS {
