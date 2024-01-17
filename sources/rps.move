@@ -7,7 +7,7 @@ module rps::rps{
     use sui::transfer;
     use std::vector;
     use sui::dynamic_object_field as ofield;
-    use sui::coin::{Self, Coin};
+    use sui::coin::{Self, Coin, TreasuryCap};
     use std::hash;
 
     const ROCK: u8 = 0;
@@ -26,7 +26,9 @@ module rps::rps{
     const FRIENDONLY: u8 = 10;
     const ONEONONE: u8 = 11;
 
-    struct RPS<phantom T> has key,store{
+    struct RPS has drop {}
+
+    struct RPSGame<phantom T> has key,store{
         id: UID,
         creator:address,
         challenger:Option<address>,
@@ -59,7 +61,7 @@ module rps::rps{
         id: UID, 
     }
 
-    fun init(ctx:&mut TxContext) {
+    fun init(witness: RPS, ctx:&mut TxContext) {
         let id = object::new(ctx);
         transfer::share_object(GameList {
             id,
@@ -68,6 +70,18 @@ module rps::rps{
         transfer::transfer(RPSCap{
             id: object::new(ctx)
         }, tx_context::sender(ctx));
+        let (treasury_cap, metadata) = coin::create_currency<RPS>(
+            witness,
+            9,
+            b"RPS",
+            b"",
+            b"",
+            option::none(),
+            ctx,
+        );
+        transfer::public_freeze_object(metadata);
+        transfer::public_transfer(treasury_cap, tx_context::sender(ctx));
+
     }
 
     
@@ -75,7 +89,7 @@ module rps::rps{
     public entry fun createGame<T>(challenger:Option<address>,message:Option<string::String>, player_one_move: vector<u8>,stakes:u64, coin: Coin<T>, type: u8, gameList_object: &mut GameList, ctx: &mut TxContext){
         assert!(stakes > 0, EZeroStakedNotAllowed);
         assert!(coin::value(&coin) == stakes, ENotStakedAmount);
-        let rsp = RPS{
+        let rsp = RPSGame{
             id : object::new(ctx),
             creator : tx_context::sender(ctx),
             challenger : challenger,
@@ -93,7 +107,7 @@ module rps::rps{
         gameList_object.rps_game_count = gameList_object.rps_game_count + 1;
     }
 
-    fun mutate_move<T>(rps: &mut RPS<T>, player_move: u8, coin:Coin<T>, friendlist: & FriendList, challenger: address) {
+    fun mutate_move<T>(rps: &mut RPSGame<T>, player_move: u8, coin:Coin<T>, friendlist: & FriendList, challenger: address) {
         assert!(coin::value(&coin) == rps.stakes, ENotStakedAmount);
         assert!(rps.distributed == true, EGameFinishedAlready);
         if (rps.type == FRIENDONLY) {
@@ -111,10 +125,20 @@ module rps::rps{
         };
         coin::put(&mut rps.balance, coin);
     }
+
+    public entry fun mint(
+        treasury_cap: &mut TreasuryCap<RPS>, 
+        amount: u64, 
+        recipient: address, 
+        ctx: &mut TxContext
+    ) {
+        coin::mint_and_transfer(treasury_cap, amount, recipient, ctx)
+    }
+
 	 
 
     public entry fun play_game<T>(child_id: ID, parent: &mut GameList, player_move:u8, coin:Coin<T>, friendlist: & FriendList, ctx: &mut TxContext){
-         mutate_move(ofield::borrow_mut<ID, RPS<T>>(
+         mutate_move(ofield::borrow_mut<ID, RPSGame<T>>(
             &mut parent.id,
             child_id,
         ), player_move, coin , friendlist, tx_context::sender(ctx)); 
@@ -142,15 +166,15 @@ module rps::rps{
     
     public entry fun select_winner<T>(_cap: &RPSCap,child_id: ID, salt:vector<u8> ,gameList_object: &mut GameList,ctx: &mut TxContext) {
         mutate_winner(
-            ofield::borrow_mut<ID, RPS<T>>(&mut gameList_object.id, child_id),
+            ofield::borrow_mut<ID, RPSGame<T>>(&mut gameList_object.id, child_id),
             salt,
             ctx,
         );
     }
 
 
-    fun mutate_winner<T>(rps: &mut RPS<T>, salt: vector<u8>, ctx: &mut TxContext) {
-        let RPS<T> {
+    fun mutate_winner<T>(rps: &mut RPSGame<T>, salt: vector<u8>, ctx: &mut TxContext) {
+        let RPSGame<T> {
                     id: _,
                     creator:_,
                     challenger,
@@ -211,7 +235,7 @@ module rps::rps{
     }
 
     entry public fun cancel_game<T>(parent: &mut GameList, child_id: ID, ctx: &mut TxContext) {
-        let RPS<T> {
+        let RPSGame<T> {
             id,
             creator,
             challenger: _,
