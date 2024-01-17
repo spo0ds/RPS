@@ -10,12 +10,20 @@ module rps::rps{
     use sui::coin::{Self, Coin, TreasuryCap};
     use std::hash;
 
+    /*//////////////////////////////////////////////////////////////////////////
+                                    CONSTANTS 
+    //////////////////////////////////////////////////////////////////////////*/
+    
     const ROCK: u8 = 0;
     const PAPER: u8 = 1;
     const SCISSORS: u8 = 2;
     const HashNotMatched: u8 = 3;
     const FRIENDONLY: u8 = 4;
     const ONEONONE: u8 = 5;
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                     ERROR
+    //////////////////////////////////////////////////////////////////////////*/
 
     const ENotStakedAmount: u64 = 6;
     const EZeroStakedNotAllowed : u64 = 7;
@@ -29,8 +37,11 @@ module rps::rps{
     const EHashNotMatched:u64 = 15;
     const EChallengerSameAsCreator:u64 = 16;
 
+    /// @dev It is the type of witness and is intended to be used only once
+
     struct RPS has drop {}
 
+    /// @dev It is the RPS Game Object Details 
     struct RPSGame<phantom T> has key,store{
         id: UID,
         creator:address,
@@ -45,30 +56,42 @@ module rps::rps{
         type: u8,
     }
 
+    /// @dev GameList contains the rps_game_count and used for Dynamical Object Properties
     struct GameList has key{
         id: UID,
         rps_game_count:  u64,
-        // rps dynamically gets added
     }
 
+    /// @dev FriendList contains array of Friend that user consist with
     struct FriendList has key {
         id: UID,
         address: vector<address>,
     }
 
+    /// @dev Token that are allowed to stake should whiteList
     struct WhiteListedTokens has key {
         id: UID,
         address: vector<ID>,
     }
 
+    /// @dev Capability for User to update, add, delete new friend 
     struct FriendCap has key{
         id: UID, 
     }
 
+    /// @dev Capability for deployer or Admin to select winner 
     struct RPSGameCap has key{
         id: UID, 
     }
 
+    /*//////////////////////////////////////////////////////////////////////////
+                                     CONSTRUCTOR
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /**
+    * @dev emit ShareObject {GameList, WhiteListedTokens} and transfer {RPSGameCap, TreasuryCap} to deployer
+    * @param witness of the RPS which allows to drop and can be called only once
+    */
     fun init(witness: RPS, ctx:&mut TxContext) {
         let id = object::new(ctx);
         transfer::share_object(GameList {
@@ -95,6 +118,15 @@ module rps::rps{
         });
     }
 
+    /*//////////////////////////////////////////////////////////////////////////
+                                     MINT NEW TOKEN
+    //////////////////////////////////////////////////////////////////////////*/
+    /**
+    * @dev allows to min the new token
+    * @param treasury_cap capablity to mint the new token
+    * @param amount number of token to be minted 
+    * @param recipient address of recipient who get the desired token
+    */
     public entry fun mint(
         treasury_cap: &mut TreasuryCap<RPS>, 
         amount: u64, 
@@ -103,18 +135,41 @@ module rps::rps{
     ) {
         coin::mint_and_transfer(treasury_cap, amount, recipient, ctx)
     }
-
-    public fun updateWhiteListToken(_cap:&RPSGameCap, whitelisted: &mut WhiteListedTokens, coin_id: vector<ID>) {
+    
+    /*//////////////////////////////////////////////////////////////////////////
+                                   WHITELIST NEW TOKEN 
+    //////////////////////////////////////////////////////////////////////////*/
+    /**
+    * @dev allows to append the token_id in WhiteListedToken shared object
+    * @param _cap RPSGamecap Capability 
+    * @param whitelisted: Shareobject Id of WhiteListed Token
+    * @param coin_id: ID of the new token to be whitelisted
+    */
+    public fun update_whitelist_token(_cap:&RPSGameCap, whitelisted: &mut WhiteListedTokens, coin_id: vector<ID>) {
         vector::append(&mut whitelisted.address, coin_id); 
     }
 
-    public fun removeWiteListedTokens(_cap: &RPSGameCap, whitelisted: &mut WhiteListedTokens, tokenAddress: ID) {
+    /*//////////////////////////////////////////////////////////////////////////
+                                   REMOVE THE EXISTING TOKEN
+    //////////////////////////////////////////////////////////////////////////*/
+    /**
+    * @dev allows to remove the token_id from WhiteListedToken shared object
+    * @param _cap RPSGamecap Capability 
+    * @param whitelisted: Shareobject Id of WhiteListed Token
+    * @param TokenAddress: ID of the new token to be whitelisted
+    */
+
+    public fun remove_whitelisted_token(_cap: &RPSGameCap, whitelisted: &mut WhiteListedTokens, tokenAddress: ID) {
         let (found, index) = vector::index_of(&whitelisted.address, &tokenAddress);
         assert!(found, ETokenNotPresent);
         vector::remove(&mut whitelisted.address, index);
     }
 
-    public entry fun createFriendlist(ctx:&mut TxContext){
+    /*//////////////////////////////////////////////////////////////////////////
+                                  CREATE FRIENDLIST SHARED OBJECT ID
+    //////////////////////////////////////////////////////////////////////////*/
+    /// @dev Create { FriendList Shared Object Id } and transfer `FriendCap` to caller
+    public entry fun create_friendlist(ctx:&mut TxContext){
          transfer::transfer(FriendCap{
             id: object::new(ctx)
         }, tx_context::sender(ctx));
@@ -124,17 +179,51 @@ module rps::rps{
         });
     }
 
-    public entry fun updateToMyFriendList(_cap:&FriendCap, friendlist: &mut FriendList, addresses: vector<address>) {
+    /*//////////////////////////////////////////////////////////////////////////
+                                  UDPATE FRIEND LIST 
+    //////////////////////////////////////////////////////////////////////////*/
+    /**
+    * @dev update the friend list 
+    * @param _cap FriendCap Capability to trigger the update_to_myfriend_list
+    * @param friendlist share object of invidual user {note every user got their different friendlist share object}
+    * @addresses collection of friend in vector to pushin friendlist
+    */
+    public entry fun update_to_myfriend_list(_cap:&FriendCap, friendlist: &mut FriendList, addresses: vector<address>) {
         vector::append(&mut friendlist.address, addresses); 
     }
 
-    public entry fun removeFriend(_cap: &FriendCap, friendlist: &mut FriendList, friendAddress: address) {
+    /*//////////////////////////////////////////////////////////////////////////
+                        REMOVE FRIEND FROM FRIENDLIST SHARED OBJECT
+    //////////////////////////////////////////////////////////////////////////*/
+    /**
+    * @dev remove the friend the friend list 
+    * @param _cap FriendCap Capability to trigger the remove_friend
+    * @param friendlist share object of invidual user {note every user got their different friendlist share object}
+    * @friendAddress: that  
+    */
+
+    public entry fun remove_friend(_cap: &FriendCap, friendlist: &mut FriendList, friendAddress: address) {
         let (found, index) = vector::index_of(&friendlist.address, &friendAddress);
         assert!(found, EFriendNotPresent);
         vector::remove(&mut friendlist.address, index);
     }
 
-    public entry fun createGame<T>(challenger:Option<address>,message:Option<string::String>, player_one_move: vector<u8>,stakes:u64, coin: Coin<T>, type: u8, gameList_object: &mut GameList, whitelisted: &WhiteListedTokens, ctx: &mut TxContext){
+    /*//////////////////////////////////////////////////////////////////////////
+                               CREATE NEW RPS GAME
+    //////////////////////////////////////////////////////////////////////////*/
+    /**
+    * @dev Create new RPS Game according to the Challenger Type
+    * @param challenger It is the challenger address where it set according to challenger Type ie. 1. ONEONONE 2.FRIENDONLY 3. FREEFORALL
+    * @param message it is the message for the oponent while creating a game and it is optional
+    * @param player_one_move it the move by the creater of the game which is confidential so here salt + hashing is done and pushed to blockchain
+    * @parma stakes amount that is stakes by game creator / player one 
+    * @param coin that is must be placed while creating the game [ must be equal to stakes ]
+    * @param type Challenge type ie 1. ONEONONE 2. FRIENDONLY 3. FREEFORALL
+    * @param gameList_object is Shared Object 
+    * @param whitelisted is the shared object id of whitelist token
+    * @addresses collection of friend address in vector  
+    */
+    public entry fun create_game<T>(challenger:Option<address>,message:Option<string::String>, player_one_move: vector<u8>,stakes:u64, coin: Coin<T>, type: u8, gameList_object: &mut GameList, whitelisted: &WhiteListedTokens, ctx: &mut TxContext){
         assert!(stakes > 0, EZeroStakedNotAllowed);
         let coinAddress = object::id(&coin);
         assert!(vector::contains(&whitelisted.address, &coinAddress) == true, ECoinNotWhiteListed);
