@@ -4,7 +4,6 @@ module rps::rps{
     use sui::tx_context::{Self, TxContext};
     use std::option::{Self, Option};
     use sui::balance::{Self, Balance};
-    use sui::sui::SUI;
     use sui::transfer;
     use std::vector;
     use sui::dynamic_object_field as ofield;
@@ -27,7 +26,7 @@ module rps::rps{
     const FRIENDONLY: u8 = 10;
     const ONEONONE: u8 = 11;
 
-    struct RPS has key,store{
+    struct RPS<phantom T> has key,store{
         id: UID,
         creator:address,
         challenger:Option<address>,
@@ -36,7 +35,7 @@ module rps::rps{
         player_two_move: Option<u8>,
         winner : Option<address>,
         stakes:u64,
-        balance: Balance<SUI>,
+        balance: Balance<T>,
         distributed: bool,
         type: u8,
     }
@@ -73,7 +72,7 @@ module rps::rps{
 
     
 
-    public entry fun createGame(challenger:Option<address>,message:Option<string::String>, player_one_move: vector<u8>,stakes:u64, coin: Coin<SUI>, type: u8, gameList_object: &mut GameList, ctx: &mut TxContext){
+    public entry fun createGame<T>(challenger:Option<address>,message:Option<string::String>, player_one_move: vector<u8>,stakes:u64, coin: Coin<T>, type: u8, gameList_object: &mut GameList, ctx: &mut TxContext){
         assert!(stakes > 0, EZeroStakedNotAllowed);
         assert!(coin::value(&coin) == stakes, ENotStakedAmount);
         let rsp = RPS{
@@ -94,7 +93,7 @@ module rps::rps{
         gameList_object.rps_game_count = gameList_object.rps_game_count + 1;
     }
 
-    fun mutate_move(rps: &mut RPS, player_move: u8, coin:Coin<SUI>, friendlist: & FriendList, challenger: address) {
+    fun mutate_move<T>(rps: &mut RPS<T>, player_move: u8, coin:Coin<T>, friendlist: & FriendList, challenger: address) {
         assert!(coin::value(&coin) == rps.stakes, ENotStakedAmount);
         assert!(rps.distributed == true, EGameFinishedAlready);
         if (rps.type == FRIENDONLY) {
@@ -114,8 +113,8 @@ module rps::rps{
     }
 	 
 
-    public entry fun play_game(child_id: ID, parent: &mut GameList, player_move:u8, coin:Coin<SUI>, friendlist: & FriendList, ctx: &mut TxContext){
-         mutate_move(ofield::borrow_mut<ID, RPS>(
+    public entry fun play_game<T>(child_id: ID, parent: &mut GameList, player_move:u8, coin:Coin<T>, friendlist: & FriendList, ctx: &mut TxContext){
+         mutate_move(ofield::borrow_mut<ID, RPS<T>>(
             &mut parent.id,
             child_id,
         ), player_move, coin , friendlist, tx_context::sender(ctx)); 
@@ -141,17 +140,17 @@ module rps::rps{
         vector::remove(&mut friendlist.address, index);
     }
     
-    public entry fun select_winner(_cap: &RPSCap,child_id: ID, salt:vector<u8> ,gameList_object: &mut GameList,ctx: &mut TxContext) {
+    public entry fun select_winner<T>(_cap: &RPSCap,child_id: ID, salt:vector<u8> ,gameList_object: &mut GameList,ctx: &mut TxContext) {
         mutate_winner(
-            ofield::borrow_mut<ID, RPS>(&mut gameList_object.id, child_id),
+            ofield::borrow_mut<ID, RPS<T>>(&mut gameList_object.id, child_id),
             salt,
             ctx,
         );
     }
 
 
-    fun mutate_winner(rps: &mut RPS, salt: vector<u8>, ctx: &mut TxContext) {
-        let RPS {
+    fun mutate_winner<T>(rps: &mut RPS<T>, salt: vector<u8>, ctx: &mut TxContext) {
+        let RPS<T> {
                     id: _,
                     creator:_,
                     challenger,
@@ -211,8 +210,8 @@ module rps::rps{
         hash::sha2_256(salt)
     }
 
-    entry public fun cancel_game(parent: &mut GameList, child_id: ID, ctx: &mut TxContext) {
-        let RPS {
+    entry public fun cancel_game<T>(parent: &mut GameList, child_id: ID, ctx: &mut TxContext) {
+        let RPS<T> {
             id,
             creator,
             challenger: _,
