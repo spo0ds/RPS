@@ -26,6 +26,8 @@ module rps::rps{
     const FRIENDONLY: u8 = 10;
     const ONEONONE: u8 = 11;
 
+    const ETokenNotPresent: u64 = 12;
+
     struct RPS has drop {}
 
     struct RPSGame<phantom T> has key,store{
@@ -53,11 +55,16 @@ module rps::rps{
         address: vector<address>,
     }
 
+    struct WhiteListedTokens has key {
+        id: UID,
+        address: vector<ID>,
+    }
+
     struct FriendCap has key{
         id: UID, 
     }
 
-    struct RPSCap has key{
+    struct RPSGameCap has key{
         id: UID, 
     }
 
@@ -67,7 +74,7 @@ module rps::rps{
             id,
             rps_game_count: 0u64,
         });
-        transfer::transfer(RPSCap{
+        transfer::transfer(RPSGameCap{
             id: object::new(ctx)
         }, tx_context::sender(ctx));
         let (treasury_cap, metadata) = coin::create_currency<RPS>(
@@ -81,10 +88,21 @@ module rps::rps{
         );
         transfer::public_freeze_object(metadata);
         transfer::public_transfer(treasury_cap, tx_context::sender(ctx));
-
+        transfer::share_object(WhiteListedTokens{
+            id: object::new(ctx),
+            address: vector::empty(),
+        });
     }
 
-    
+    public fun updateWhiteListToken(_cap:&RPSGameCap, whitelisted: &mut WhiteListedTokens, coin_id: vector<ID>) {
+        vector::append(&mut whitelisted.address, coin_id); 
+    }
+
+     public fun removeWiteListedTokens(_cap: &RPSGameCap, whitelisted: &mut WhiteListedTokens, tokenAddress: ID) {
+        let (found, index) = vector::index_of(&whitelisted.address, &tokenAddress);
+        assert!(found, ETokenNotPresent);
+        vector::remove(&mut whitelisted.address, index);
+    }
 
     public entry fun createGame<T>(challenger:Option<address>,message:Option<string::String>, player_one_move: vector<u8>,stakes:u64, coin: Coin<T>, type: u8, gameList_object: &mut GameList, ctx: &mut TxContext){
         assert!(stakes > 0, EZeroStakedNotAllowed);
@@ -164,7 +182,7 @@ module rps::rps{
         vector::remove(&mut friendlist.address, index);
     }
     
-    public entry fun select_winner<T>(_cap: &RPSCap,child_id: ID, salt:vector<u8> ,gameList_object: &mut GameList,ctx: &mut TxContext) {
+    public entry fun select_winner<T>(_cap: &RPSGameCap,child_id: ID, salt:vector<u8> ,gameList_object: &mut GameList,ctx: &mut TxContext) {
         mutate_winner(
             ofield::borrow_mut<ID, RPSGame<T>>(&mut gameList_object.id, child_id),
             salt,
