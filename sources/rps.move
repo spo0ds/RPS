@@ -9,6 +9,7 @@ module rps::rps{
     use sui::dynamic_object_field as ofield;
     use sui::coin::{Self, Coin, TreasuryCap};
     use std::hash;
+    use std::type_name::{Self, TypeName};
 
     /*//////////////////////////////////////////////////////////////////////////
                                     CONSTANTS 
@@ -71,7 +72,7 @@ module rps::rps{
     /// @dev Token that are allowed to stake should whiteList
     struct WhiteListedTokens has key {
         id: UID,
-        address: vector<ID>,
+        list: vector<TypeName>,
     }
 
     /// @dev Capability for User to update, add, delete new friend 
@@ -114,7 +115,7 @@ module rps::rps{
         transfer::public_transfer(treasury_cap, tx_context::sender(ctx));
         transfer::share_object(WhiteListedTokens{
             id: object::new(ctx),
-            address: vector::empty(),
+            list: vector::empty(),
         });
     }
 
@@ -143,10 +144,9 @@ module rps::rps{
     * @dev allows to append the token_id in WhiteListedToken shared object
     * @param _cap RPSGamecap Capability 
     * @param whitelisted: Shareobject Id of WhiteListed Token
-    * @param coin_id: ID of the new token to be whitelisted
     */
-    public fun update_whitelist_token(_cap:&RPSGameCap, whitelisted: &mut WhiteListedTokens, coin_id: vector<ID>) {
-        vector::append(&mut whitelisted.address, coin_id); 
+    public fun update_whitelist_token<T>(_cap:&RPSGameCap, whitelisted: &mut WhiteListedTokens) {
+        vector::push_back(&mut whitelisted.list, type_name::get<T>());
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -156,13 +156,12 @@ module rps::rps{
     * @dev allows to remove the token_id from WhiteListedToken shared object
     * @param _cap RPSGamecap Capability 
     * @param whitelisted: Shareobject Id of WhiteListed Token
-    * @param TokenAddress: ID of the new token to be whitelisted
     */
 
-    public fun remove_whitelisted_token(_cap: &RPSGameCap, whitelisted: &mut WhiteListedTokens, tokenAddress: ID) {
-        let (found, index) = vector::index_of(&whitelisted.address, &tokenAddress);
+    public fun remove_whitelisted_token<T>(_cap: &RPSGameCap, whitelisted: &mut WhiteListedTokens) {
+        let (found, index) = vector::index_of(&whitelisted.list, &type_name::get<T>());
         assert!(found, ETokenNotPresent);
-        vector::remove(&mut whitelisted.address, index);
+        vector::remove(&mut whitelisted.list, index);
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -225,8 +224,7 @@ module rps::rps{
     */
     public entry fun create_game<T>(challenger:Option<address>,message:Option<string::String>, player_one_move: vector<u8>,stakes:u64, coin: Coin<T>, type: u8, gameList_object: &mut GameList, whitelisted: &WhiteListedTokens, ctx: &mut TxContext){
         assert!(stakes > 0, EZeroStakedNotAllowed);
-        let coinAddress = object::id(&coin);
-        assert!(vector::contains(&whitelisted.address, &coinAddress) == true, ECoinNotWhiteListed);
+        assert!(vector::contains(&whitelisted.list, &type_name::get<T>()) == true, ECoinNotWhiteListed);
         assert!(coin::value(&coin) == stakes, ENotStakedAmount);
         if (challenger != option::none()){
             assert!(tx_context::sender(ctx) != *option::borrow(&challenger), EChallengerSameAsCreator);
@@ -249,7 +247,7 @@ module rps::rps{
         gameList_object.rps_game_count = gameList_object.rps_game_count + 1;
     }
 
-    public entry fun play_game<T>(child_id: ID, parent: &mut GameList, player_move:u8, coin:Coin<T>, friendlist: & FriendList, whitelisted: &WhiteListedTokens, ctx: &mut TxContext){
+    public entry fun play_game<T>(child_id: ID, parent: &mut GameList, player_move:u8, coin:Coin<T>, friendlist: &FriendList, whitelisted: &WhiteListedTokens, ctx: &mut TxContext){
          mutate_move(ofield::borrow_mut<ID, RPSGame<T>>(
             &mut parent.id,
             child_id,
@@ -286,10 +284,8 @@ module rps::rps{
     }
 
     fun mutate_move<T>(rps: &mut RPSGame<T>, player_move: u8, coin:Coin<T>, friendlist: & FriendList, challenger: address, whitelisted: &WhiteListedTokens) {
-        let coinAddress = object::id(&coin);
-        assert!(vector::contains(&whitelisted.address, &coinAddress) == true, ECoinNotWhiteListed);
-        assert!(coin::value(&coin) == rps.stakes, ENotStakedAmount);
-        assert!(rps.distributed == true, EGameFinishedAlready);
+        assert!(vector::contains(&whitelisted.list, &type_name::get<T>()) == true, ECoinNotWhiteListed);        assert!(coin::value(&coin) == rps.stakes, ENotStakedAmount);
+        assert!(rps.distributed == false, EGameFinishedAlready);
         if (rps.type == FRIENDONLY) {
             assert!(vector::contains(&friendlist.address, &challenger) == true, ENotFriend);
             rps.challenger = option::some(challenger); 
@@ -317,9 +313,10 @@ module rps::rps{
                     winner: _,
                     stakes,
                     balance: _,
-                    distributed: _,
+                    distributed,
                     type: _,
                 } = rps;
+        assert!(*distributed == false, EGameFinishedAlready);
         let gesture_one = find_gesture(salt, &rps.player_one_move);
         assert!(gesture_one != HashNotMatched, EHashNotMatched);
         let gesture_two = *option::borrow(player_two_move);
