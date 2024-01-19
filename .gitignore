@@ -3,3 +3,4 @@ Move.lock
 scripts/.env
 node_modules/
 scripts/node_modules/
+package-lock.json
