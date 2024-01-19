@@ -10,10 +10,10 @@ function sleep(ms: number): Promise<void> {
     });
 }
 
-const GetPackageId = async () => {
+const getPackageId = async () => {
     try {
         const { keypair, client } = getExecStuff();
-        const account = "0x821febff0631744c231a0f696f62b72576f2634b2ade78c74ff20f1df97fc9bf";
+        const account = "0x3661c4815e13c149514860d040a7edb64cb115d0610a532a5cb6101546bd5738";
         const packagePath = process.cwd();
         const { modules, dependencies } = JSON.parse(
             execSync(`sui move build --dump-bytecode-as-base64 --path ${packagePath}`, {
@@ -42,6 +42,9 @@ const GetPackageId = async () => {
         ) as SuiObjectChangePublished[]) ?? [])[0].packageId.replace(/^(0x)(0+)/, '0x') as string;
         let GameListId;
         let RPSCapId;
+        let TreasuryCapId;
+        let WhiteListedTokensId;
+        let CoinMetadataId;
         // console.log(`packaged ID : ${packageId}`);
         await sleep(10000);
 
@@ -66,25 +69,34 @@ const GetPackageId = async () => {
 
         for (let i = 0; i < output.length; i++) {
             const item = output[i];
-            if (item.type === 'created') {
-                if (item.objectType === `${packageId}::rps::GameList`) {
+            if (await item.type === 'created') {
+                if (await item.objectType === `${packageId}::rps::GameList`) {
                     GameListId = String(item.objectId);
                 }
-                if (item.objectType === `${packageId}::rps::RPSCap`){
+                if (await item.objectType === `${packageId}::rps::RPSGameCap`) {
                     RPSCapId = String(item.objectId);
+                }
+                if (await item.objectType == `0x2::coin::TreasuryCap<${packageId}::rps::RPS>`) {
+                    TreasuryCapId = String(item.objectId);
+                }
+                if (await item.objectType == `${packageId}::rps::WhiteListedTokens`) {
+                    WhiteListedTokensId = String(item.objectId);
+                }
+                if (await item.objectType == `0x2::coin::CoinMetadata<${packageId}::rps::RPS>`) {
+                    CoinMetadataId = String(item.objectId);
                 }
             }
         }
-        return { packageId, GameListId, RPSCapId };
+        return { packageId, GameListId, RPSCapId, TreasuryCapId, WhiteListedTokensId, CoinMetadataId };
     } catch (error) {
         // Handle potential errors if the promise rejects
         console.error(error);
-        return { packageId: '', GameListId: '', RPSCapId: ''};
+        return { packageId: '', GameListId: '', RPSCapId: '', TreasuryCapId: '', WhiteListedTokensId: '', CoinMetadataId: '' };
     }
 };
 
 // Call the async function and handle the result.
-GetPackageId()
+getPackageId()
     .then((result) => {
         console.log(result);
     })
@@ -92,4 +104,4 @@ GetPackageId()
         console.error(error);
     });
 
-export default GetPackageId;
+export default getPackageId;
