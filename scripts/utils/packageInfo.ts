@@ -1,4 +1,9 @@
-export let packageId = '0xb088168d77d4b908d6c603510906216cf9dd136d1d70e9a81152e427de0f2c38';
-export let GameListId = '0xd1ea9cd6f90a6375e74e1600f4265d411523e8adfe4a59262c190e609927620d';
-export let RPSCapId = '0x1a5ff81c0a5b44bc957051bdbf443dfff8bd0c6b05b82c74ee87f6fc68f23a54';
-export let RPSId = '0x694d536b14e43d6b468b4b35aefa811a485457493f3cf6b2d833dcf32ef34797';
+export let packageId = '0xe466142a9275b5356a890627b6041a45d5711969d04d1b56707e20b516bdc433';
+export let GameListId = '0xa82117722358a26dd914f2050d1668146093b9e19c50d08d4fa5dc011f1df9a5';
+export let RPSCapId = '0x7b8a7d49ca5a927723448f8cf88b153f30bca96885e4c0210c291ac8bdc34cdd';
+export let TreasuryCapId = '0xad54de9e50885c1407c1a1b2ebd7f7c03ed5c2b2bfb45ef8afebd84e619c5385';
+export let WhiteListedTokensId = '0xd57ac1b1ff8b8052c54f74afc9aff39bb0f2be8896bcd8f50eab7e03585e38e7';
+export let CoinMetadataId = '0xb05082cf76cdad7da7c0f27e6833e1cafe81549323531346eec1dbd850c6aee5';
+export let RPSId = '0xb257fef8bd82089311581ee793a49ca9615e72da493c446bf9fe48ec773aca7f';
+export let FriendListId = '0xdd90ec0dd7cf4c2e973e0bf2b69a4f4b588666082a78a53529fa1731bd1ba048';
+export let FriendCapId = '0x7738702f0d8ae642d9c26800639c7620de2b85c91e665670220c8799ef8746f9';
