@@ -1,7 +1,7 @@
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import * as dotenv from 'dotenv';
 import getExecStuff from '../utils/execstuff';
-import { packageId, RPSId, GameListId, FriendListId, WhiteListedTokensId } from '../utils/packageInfo';
+import { packageId, RPSId, GameListId, FriendListId, WhiteListedTokensId, GameInfoId } from '../utils/packageInfo';
 dotenv.config();
 
 // string => hex => sha256 => hex value => passss
@@ -22,8 +22,9 @@ async function playRpsGame(amount: number) {
             coin,
             tx.object(FriendListId),
             tx.object(WhiteListedTokensId),
+            tx.object(GameInfoId),
         ],
-        typeArguments: ["0x2::sui::SUI"]
+        typeArguments: [`${packageId}::rps::RPS`]
     });
     const result = await client.signAndExecuteTransactionBlock({
         signer: keypair,
