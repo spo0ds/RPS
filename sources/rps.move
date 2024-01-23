@@ -10,6 +10,7 @@ module rps::rps{
     use sui::coin::{Self, Coin, TreasuryCap};
     use std::hash;
     use std::type_name::{Self, TypeName};
+    use sui::math;
 
     /*//////////////////////////////////////////////////////////////////////////
                                     CONSTANTS 
@@ -37,6 +38,7 @@ module rps::rps{
     const ECoinNotWhiteListed:u64 =14;
     const EHashNotMatched:u64 = 15;
     const EChallengerSameAsCreator:u64 = 16;
+    const EZamePaused: u64 = 17;
 
     /// @dev It is the type of witness and is intended to be used only once
 
@@ -75,6 +77,14 @@ module rps::rps{
         list: vector<TypeName>,
     }
 
+    struct GameInfo has key{
+        id: UID,
+        pause: bool,
+        treasury_address: address,
+        protocol_fee: u64,
+    }
+
+
     /// @dev Capability for User to update, add, delete new friend 
     struct FriendCap has key{
         id: UID, 
@@ -102,6 +112,14 @@ module rps::rps{
         transfer::transfer(RPSGameCap{
             id: object::new(ctx)
         }, tx_context::sender(ctx));
+
+        transfer::share_object(GameInfo{
+            id: object::new(ctx),
+            pause: false,
+            treasury_address: tx_context::sender(ctx),
+            protocol_fee : 5,
+        });
+
         let (treasury_cap, metadata) = coin::create_currency<RPS>(
             witness,
             9,
@@ -136,6 +154,23 @@ module rps::rps{
     ) {
         coin::mint_and_transfer(treasury_cap, amount, recipient, ctx)
     }
+
+    public fun set_treasury_owner(_cap:&RPSGameCap, game_info: &mut GameInfo, new_owner: address){
+        game_info.treasury_address = new_owner;
+    }
+
+    public fun set_protocol_fee(_cap:&RPSGameCap, game_info: &mut GameInfo, new_fee_percentage: u64){
+        game_info.protocol_fee = new_fee_percentage;
+    }
+
+    public fun pause_game(_cap:&RPSGameCap, game_info: &mut GameInfo){
+        game_info.pause = true;
+    }
+
+    public fun unpause_game(_cap:&RPSGameCap, game_info: &mut GameInfo){
+        game_info.pause = false;
+    }
+
     
     /*//////////////////////////////////////////////////////////////////////////
                                    WHITELIST NEW TOKEN 
@@ -222,7 +257,8 @@ module rps::rps{
     * @param whitelisted is the shared object id of whitelist token
     * @addresses collection of friend address in vector  
     */
-    public entry fun create_game<T>(challenger:Option<address>,message:Option<string::String>, player_one_move: vector<u8>,stakes:u64, coin: Coin<T>, type: u8, gameList_object: &mut GameList, whitelisted: &WhiteListedTokens, ctx: &mut TxContext){
+    public entry fun create_game<T>(challenger:Option<address>,message:Option<string::String>, player_one_move: vector<u8>,stakes:u64, coin: Coin<T>, type: u8, gameList_object: &mut GameList, whitelisted: &WhiteListedTokens, game_info: &GameInfo, ctx: &mut TxContext){
+        assert!(game_info.pause == false, EZamePaused);
         assert!(stakes > 0, EZeroStakedNotAllowed);
         assert!(vector::contains(&whitelisted.list, &type_name::get<T>()) == true, ECoinNotWhiteListed);
         assert!(coin::value(&coin) == stakes, ENotStakedAmount);
@@ -247,17 +283,18 @@ module rps::rps{
         gameList_object.rps_game_count = gameList_object.rps_game_count + 1;
     }
 
-    public entry fun play_game<T>(child_id: ID, parent: &mut GameList, player_move:u8, coin:Coin<T>, friendlist: &FriendList, whitelisted: &WhiteListedTokens, ctx: &mut TxContext){
+    public entry fun play_game<T>(child_id: ID, parent: &mut GameList, player_move:u8, coin:Coin<T>, friendlist: &FriendList, whitelisted: &WhiteListedTokens, game_info: &GameInfo, ctx: &mut TxContext){
          mutate_move(ofield::borrow_mut<ID, RPSGame<T>>(
             &mut parent.id,
             child_id,
-        ), player_move, coin , friendlist, tx_context::sender(ctx), whitelisted); 
+        ), player_move, coin , friendlist, tx_context::sender(ctx), whitelisted, game_info); 
     }
 
-    public entry fun select_winner<T>(_cap: &RPSGameCap,child_id: ID, salt:vector<u8> ,gameList_object: &mut GameList,ctx: &mut TxContext) {
+    public entry fun select_winner<T>(_cap: &RPSGameCap,child_id: ID, salt:vector<u8> ,gameList_object: &mut GameList, game_info: &GameInfo, ctx: &mut TxContext) {
         mutate_winner(
             ofield::borrow_mut<ID, RPSGame<T>>(&mut gameList_object.id, child_id),
             salt,
+            game_info,
             ctx,
         );
     }
@@ -283,8 +320,10 @@ module rps::rps{
         object::delete(id);
     }
 
-    fun mutate_move<T>(rps: &mut RPSGame<T>, player_move: u8, coin:Coin<T>, friendlist: & FriendList, challenger: address, whitelisted: &WhiteListedTokens) {
-        assert!(vector::contains(&whitelisted.list, &type_name::get<T>()) == true, ECoinNotWhiteListed);        assert!(coin::value(&coin) == rps.stakes, ENotStakedAmount);
+    fun mutate_move<T>(rps: &mut RPSGame<T>, player_move: u8, coin:Coin<T>, friendlist: & FriendList, challenger: address, whitelisted: &WhiteListedTokens, game_info: &GameInfo) {
+        assert!(game_info.pause == false, EZamePaused);
+        assert!(vector::contains(&whitelisted.list, &type_name::get<T>()) == true, ECoinNotWhiteListed);        
+        assert!(coin::value(&coin) == rps.stakes, ENotStakedAmount);
         assert!(rps.distributed == false, EGameFinishedAlready);
         if (rps.type == FRIENDONLY) {
             assert!(vector::contains(&friendlist.address, &challenger) == true, ENotFriend);
@@ -302,7 +341,7 @@ module rps::rps{
         coin::put(&mut rps.balance, coin);
     }
 
-    fun mutate_winner<T>(rps: &mut RPSGame<T>, salt: vector<u8>, ctx: &mut TxContext) {
+    fun mutate_winner<T>(rps: &mut RPSGame<T>, salt: vector<u8>, game_info: &GameInfo, ctx: &mut TxContext) {
         let RPSGame<T> {
                     id: _,
                     creator:_,
@@ -321,20 +360,24 @@ module rps::rps{
         assert!(gesture_one != HashNotMatched, EHashNotMatched);
         let gesture_two = *option::borrow(player_two_move);
         let total_balance = balance::value(&rps.balance);
-        let coin = coin::take(&mut rps.balance, total_balance, ctx);
         let challenger_address = *(option::borrow(challenger));
         if (gesture_one == gesture_two){
+            let coin = coin::take(&mut rps.balance, total_balance, ctx);
             transfer::public_transfer(coin::split(&mut coin, *stakes, ctx), rps.creator);
             transfer::public_transfer(coin, challenger_address);
         }else{
+            let protocol_amount = math::divide_and_round_up(game_info.protocol_fee * total_balance, 100);
+            let fee_amount = coin::take(&mut rps.balance, protocol_amount, ctx);
+            transfer::public_transfer(fee_amount, game_info.treasury_address);
+            let winner_amount = coin::take(&mut rps.balance, math::diff(total_balance, protocol_amount) , ctx);
             let playerMove = play(gesture_one, *option::borrow(player_two_move));
             let challenger_address = *(option::borrow(challenger));
             if (playerMove) {
                 rps.winner = option::some(rps.creator);
-                transfer::public_transfer(coin, rps.creator);
+                transfer::public_transfer(winner_amount, rps.creator);
             }else{
                 rps.winner = option::some(challenger_address);
-                transfer::public_transfer(coin, challenger_address);
+                transfer::public_transfer(winner_amount, challenger_address);
             };
         };
         rps.distributed = true; 
