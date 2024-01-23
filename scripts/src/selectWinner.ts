@@ -1,7 +1,7 @@
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import * as dotenv from 'dotenv';
 import getExecStuff from '../utils/execstuff';
-import { packageId, RPSId, GameListId } from '../utils/packageInfo';
+import { packageId, RPSId, GameListId, GameInfoId } from '../utils/packageInfo';
 dotenv.config();
 
 // string => hex => sha256 => hex value => passss
@@ -32,6 +32,7 @@ async function selectWinner() {
             tx.pure.address(RPSId),
             tx.pure(Array.from(hashDigest)),
             tx.object(GameListId),
+            tx.object(GameInfoId),
         ],
         typeArguments: [`${packageId}::rps::RPS`]
     });
