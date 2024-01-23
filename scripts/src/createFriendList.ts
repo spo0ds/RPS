@@ -1,6 +1,4 @@
 import { TransactionBlock } from '@mysten/sui.js/transactions';
-import { SuiObjectChangePublished } from '@mysten/sui.js/client';
-
 import * as dotenv from 'dotenv';
 import getExecStuff from '../utils/execstuff';
 import { packageId } from '../utils/packageInfo';

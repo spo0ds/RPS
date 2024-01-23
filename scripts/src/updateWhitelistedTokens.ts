@@ -1,7 +1,7 @@
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import * as dotenv from 'dotenv';
 import getExecStuff from '../utils/execstuff';
-import { packageId, RPSCapId, WhiteListedTokensId, CoinMetadataId } from '../utils/packageInfo';
+import { packageId, RPSCapId, WhiteListedTokensId } from '../utils/packageInfo';
 dotenv.config();
 
 async function updateToken() {
@@ -13,8 +13,8 @@ async function updateToken() {
             tx.object(RPSCapId),
             tx.object(WhiteListedTokensId)
         ],
-        // typeArguments: [`${packageId}::rps::RPS`],
-        typeArguments: ["0x2::sui::SUI"],
+        typeArguments: [`${packageId}::rps::RPS`],
+        // typeArguments: ["0x2::sui::SUI"],
     });
 
     const result = await client.signAndExecuteTransactionBlock({
