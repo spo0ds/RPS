@@ -2,7 +2,7 @@ import { TransactionBlock } from '@mysten/sui.js/transactions';
 import * as dotenv from 'dotenv';
 import getExecStuff from '../utils/execstuff';
 import { sha256 } from '@noble/hashes/sha256';
-import { packageId, GameListId, WhiteListedTokensId } from '../utils/packageInfo';
+import { packageId, GameListId, WhiteListedTokensId, GameInfoId } from '../utils/packageInfo';
 dotenv.config();
 
 // string => hex => sha256 => hex value => passss
@@ -33,11 +33,15 @@ async function createRpsGame(amount: number) {
     console.log(typeof hashDigest);
     const { keypair, client } = getExecStuff();
     const tx = new TransactionBlock();
+    // for rps coin
     let coinId: string = (await client.getCoins({
         owner: keypair.getPublicKey().toSuiAddress(),
         coinType: `${packageId}::rps::RPS`,
     })).data[0].coinObjectId;
     const coin = tx.splitCoins(coinId, [tx.pure(amount)]);
+
+    // for sui only
+    // const coin = tx.splitCoins(tx.gas, [tx.pure(amount)]);
 
     tx.moveCall({
         target: `${packageId}::rps::create_game`,
@@ -49,7 +53,8 @@ async function createRpsGame(amount: number) {
             coin,
             tx.pure.u8(10),
             tx.object(GameListId),
-            tx.object(WhiteListedTokensId)
+            tx.object(WhiteListedTokensId),
+            tx.object(GameInfoId)
         ],
         typeArguments: [`${packageId}::rps::RPS`]
         // typeArguments: [`0x2::sui::SUI`]
