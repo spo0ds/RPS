@@ -384,7 +384,7 @@ module rps::rps{
         } = ofield::remove(&mut parent.id, child_id);
         assert!(creator == tx_context::sender(ctx), ENotCreator);
         assert!(distributed == false, EGameFinishedAlready);
-        assert!(player_two_move !=  option::none(), EPlayer2AlreadyPlayed);
+        assert!(player_two_move == option::none(), EPlayer2AlreadyPlayed);
         let coin = sui::coin::from_balance(balance, ctx);
         sui::transfer::public_transfer(coin, creator);
         object::delete(id);
