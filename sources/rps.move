@@ -77,6 +77,7 @@ module rps::rps{
         list: vector<TypeName>,
     }
 
+    /// @dev GameInfo represent the state of GameInfo, treasury_address and protocol_fee
     struct GameInfo has key{
         id: UID,
         pause: bool,
@@ -155,18 +156,54 @@ module rps::rps{
         coin::mint_and_transfer(treasury_cap, amount, recipient, ctx)
     }
 
+    /*//////////////////////////////////////////////////////////////////////////
+                                SET TREASURY OWNER 
+    ////////////////////////////////////////////////////////////////////////// */
+    /**
+    * @dev allow to set the treasury owner 
+    * @param _cap Capability of RPSGame 
+    * @param game_info is the Shared object which shows the details of protocol admin, protocol fee and state of the game
+    * @param new_owner address of the new owner 
+    */
+
     public fun set_treasury_owner(_cap:&RPSGameCap, game_info: &mut GameInfo, new_owner: address){
         game_info.treasury_address = new_owner;
     }
 
+    /*//////////////////////////////////////////////////////////////////////////
+                                SET PROTOCOL FEE  
+    ////////////////////////////////////////////////////////////////////////// */
+    /** 
+    * @dev allow to set the protocol fee 
+    * @param _cap Capability of RPSGame 
+    * @param game_info is the Shared object which shows the details of protocol admin, protocol fee and state of the game
+    * @param new_fee_percentage is the protocol fee 
+    */
     public fun set_protocol_fee(_cap:&RPSGameCap, game_info: &mut GameInfo, new_fee_percentage: u64){
         game_info.protocol_fee = new_fee_percentage;
     }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                PAUSE GAME   
+    ////////////////////////////////////////////////////////////////////////// */
+    /**
+    * @dev allow to pause the game
+    * @param _cap Capability of RPSGame
+    * @param game_info is the Shared object which shows the details of protocol admin, protocol fee and state of the game
+    */
 
     public fun pause_game(_cap:&RPSGameCap, game_info: &mut GameInfo){
         game_info.pause = true;
     }
 
+     /*//////////////////////////////////////////////////////////////////////////
+                                UNPAUSE GAME   
+    ////////////////////////////////////////////////////////////////////////// */
+    /**
+    * @dev allow to unpause the game
+    * @param _cap Capability of RPSGame
+    * @param game_info is the Shared object which shows the details of protocol admin, protocol fee and state of the game
+    */
     public fun unpause_game(_cap:&RPSGameCap, game_info: &mut GameInfo){
         game_info.pause = false;
     }
@@ -255,7 +292,7 @@ module rps::rps{
     * @param type Challenge type ie 1. ONEONONE 2. FRIENDONLY 3. FREEFORALL
     * @param gameList_object is Shared Object 
     * @param whitelisted is the shared object id of whitelist token
-    * @param game_info is the private object which shows the details of protocol admin, protocol fee and state of the game
+    * @param game_info is the shared object which shows the details of protocol admin, protocol fee and state of the game
     */
     public entry fun create_game<T>(challenger:Option<address>,message:Option<string::String>, player_one_move: vector<u8>,stakes:u64, coin: Coin<T>, type: u8, gameList_object: &mut GameList, whitelisted: &WhiteListedTokens, game_info: &GameInfo, ctx: &mut TxContext){
         assert!(game_info.pause == false, EZamePaused);
@@ -292,7 +329,7 @@ module rps::rps{
     * @param player_move is the move of the Second Player ie. ROCK / PAPER / SCISSORS
     * @param coin is the particular amount that Second Player want to Stake and play and it is of Generic Type 
     * @param whitelisted is the share object ID to get the whiteListed Token details
-    * @param game_info is the private object which shows the details of protocol admin, protocol fee and state of the game
+    * @param game_info is the shared object which shows the details of protocol admin, protocol fee and state of the game
     */
 
     public entry fun play_game<T>(child_id: ID, parent: &mut GameList, player_move:u8, coin:Coin<T>, friendlist: &FriendList, whitelisted: &WhiteListedTokens, game_info: &GameInfo, ctx: &mut TxContext){
@@ -311,7 +348,7 @@ module rps::rps{
     * @param child_id is the created game RPS object ID
     * @param salt is secret key to hide the RPS game creator moves ie Player One move
     * @param gameList_object is Shared Object ID to track all the created Game and its count
-    * @param game_info is the private object which shows the details of protocol admin, protocol fee and state of the game
+    * @param game_info is the Shared object which shows the details of protocol admin, protocol fee and state of the game
     */
     public entry fun select_winner<T>(_cap: &RPSGameCap,child_id: ID, salt:vector<u8> ,gameList_object: &mut GameList, game_info: &GameInfo, ctx: &mut TxContext) {
         mutate_winner(
@@ -361,8 +398,8 @@ module rps::rps{
     * @param coin is the particular amount that Second Player want to Stake and play and it is of Generic Type 
     * @param friendlist is the sharedObject ID to get the collection of the creator FriendLIst
     * @param challenger is the player two addresses who is about to play game
-    * @param whitelisted is the share object ID to get the whiteListed Token details
-    * @param game_info is the private object which shows the details of protocol admin, protocol fee and state of the game
+    * @param whitelisted is the shared object ID to get the whiteListed Token details
+    * @param game_info is the shared object which shows the details of protocol admin, protocol fee and state of the game
     */
     fun mutate_move<T>(rps: &mut RPSGame<T>, player_move: u8, coin:Coin<T>, friendlist: & FriendList, challenger: address, whitelisted: &WhiteListedTokens, game_info: &GameInfo) {
         assert!(game_info.pause == false, EZamePaused);
@@ -392,7 +429,7 @@ module rps::rps{
     * @dev mutate_winner mutate the DOF object field for select winner function call
     * @param rps is the RPSGame object ID 
     * @param salt is secret key to hide the RPS game creator moves ie Player One move
-    * @param game_info is the private object which shows the details of protocol admin, protocol fee and state of the game
+    * @param game_info is the shared object which shows the details of protocol admin, protocol fee and state of the game
     */
     fun mutate_winner<T>(rps: &mut RPSGame<T>, salt: vector<u8>, game_info: &GameInfo, ctx: &mut TxContext) {
         let RPSGame<T> {
