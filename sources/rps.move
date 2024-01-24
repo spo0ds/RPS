@@ -298,7 +298,7 @@ module rps::rps{
     * @param game_info is the shared object which shows the details of protocol admin, protocol fee and state of the game
     */
 
-    public entry fun create_game<T>(challenger:Option<address>,message:Option<string::String>, player_one_move: vector<u8>,stakes:u64, coin: Coin<T>, type: u8, gameList_object: &mut GameList, whitelisted: &WhiteListedTokens, game_info: &GameInfo, clock: &Clock, ctx: &mut TxContext){
+    public entry fun create_game<T>(challenger:Option<address>, message:Option<string::String>, player_one_move: vector<u8>, stakes:u64, coin: Coin<T>, type: u8, gameList_object: &mut GameList, whitelisted: &WhiteListedTokens, game_info: &GameInfo, clock: &Clock, ctx: &mut TxContext){
         assert!(game_info.pause == false, EZamePaused);
         assert!(stakes > 0, EZeroStakedNotAllowed);
         assert!(vector::contains(&whitelisted.list, &type_name::get<T>()) == true, ECoinNotWhiteListed);
@@ -355,7 +355,7 @@ module rps::rps{
     * @param gameList_object is Shared Object ID to track all the created Game and its count
     * @param game_info is the Shared object which shows the details of protocol admin, protocol fee and state of the game
     */
-    public entry fun select_winner<T>(_cap: &RPSGameCap,child_id: ID, salt:vector<u8> ,gameList_object: &mut GameList, game_info: &GameInfo, clock: &Clock, ctx: &mut TxContext) {
+    public entry fun select_winner<T>(child_id: ID, salt:vector<u8>, gameList_object: &mut GameList, game_info: &GameInfo, clock: &Clock, ctx: &mut TxContext) {
         mutate_winner(
             ofield::borrow_mut<ID, RPSGame<T>>(&mut gameList_object.id, child_id),
             salt,
@@ -417,19 +417,17 @@ module rps::rps{
         if (rps.type == FRIENDONLY) {
             assert!(vector::contains(&friendlist.address, &challenger) == true, ENotFriend);
             rps.challenger = option::some(challenger); 
-            rps.player_two_move = option::some(player_move); 
-            rps.timestamp = clock::timestamp_ms(clock);     
+            rps.player_two_move = option::some(player_move);        
         }
         else if(rps.type == ONEONONE) {
             assert!(rps.challenger == option::some(challenger), ENotChallenger);
             rps.player_two_move = option::some(player_move);
-            rps.timestamp = clock::timestamp_ms(clock);  
         }
         else {
             rps.challenger = option::some(challenger);
             rps.player_two_move = option::some(player_move);
-            rps.timestamp = clock::timestamp_ms(clock);    
         };
+        rps.timestamp = clock::timestamp_ms(clock); 
         coin::put(&mut rps.balance, coin);
     }
 
@@ -457,38 +455,37 @@ module rps::rps{
                     distributed,
                     type: _,
                 } = rps;
-        if(*distributed == false && *timestamp + clock::timestamp_ms(clock)>= 86400000 ) {
+        assert!(*distributed == false, EGameFinishedAlready);
+        if(*player_two_move != option::none() && *timestamp + clock::timestamp_ms(clock)>= 86_400_000) {
             let total_balance = balance::value(&rps.balance);
             let challenger_address = *(option::borrow(challenger));
             let coin = coin::take(&mut rps.balance, total_balance, ctx);
             transfer::public_transfer(coin, challenger_address);
-        }
-        else {
-        assert!(*distributed == false, EGameFinishedAlready);
-        let gesture_one = find_gesture(salt, &rps.player_one_move);
-        assert!(gesture_one != HashNotMatched, EHashNotMatched);
-        let gesture_two = *option::borrow(player_two_move);
-        let total_balance = balance::value(&rps.balance);
-        let challenger_address = *(option::borrow(challenger));
-        if (gesture_one == gesture_two){
-            let coin = coin::take(&mut rps.balance, total_balance, ctx);
-            transfer::public_transfer(coin::split(&mut coin, *stakes, ctx), rps.creator);
-            transfer::public_transfer(coin, challenger_address);
-        }else{
-            let protocol_amount = math::divide_and_round_up(game_info.protocol_fee * total_balance, 100);
-            let fee_amount = coin::take(&mut rps.balance, protocol_amount, ctx);
-            transfer::public_transfer(fee_amount, game_info.treasury_address);
-            let winner_amount = coin::take(&mut rps.balance, math::diff(total_balance, protocol_amount) , ctx);
-            let playerMove = play(gesture_one, *option::borrow(player_two_move));
+        }else {
+            let gesture_one = find_gesture(salt, &rps.player_one_move);
+            assert!(gesture_one != HashNotMatched, EHashNotMatched);
+            let gesture_two = *option::borrow(player_two_move);
+            let total_balance = balance::value(&rps.balance);
             let challenger_address = *(option::borrow(challenger));
-            if (playerMove) {
-                rps.winner = option::some(rps.creator);
-                transfer::public_transfer(winner_amount, rps.creator);
+            if (gesture_one == gesture_two){
+                let coin = coin::take(&mut rps.balance, total_balance, ctx);
+                transfer::public_transfer(coin::split(&mut coin, *stakes, ctx), rps.creator);
+                transfer::public_transfer(coin, challenger_address);
             }else{
-                rps.winner = option::some(challenger_address);
-                transfer::public_transfer(winner_amount, challenger_address);
+                let protocol_amount = math::divide_and_round_up(game_info.protocol_fee * total_balance, 100);
+                let fee_amount = coin::take(&mut rps.balance, protocol_amount, ctx);
+                transfer::public_transfer(fee_amount, game_info.treasury_address);
+                let winner_amount = coin::take(&mut rps.balance, math::diff(total_balance, protocol_amount) , ctx);
+                let playerMove = play(gesture_one, *option::borrow(player_two_move));
+                let challenger_address = *(option::borrow(challenger));
+                if (playerMove) {
+                    rps.winner = option::some(rps.creator);
+                    transfer::public_transfer(winner_amount, rps.creator);
+                }else{
+                    rps.winner = option::some(challenger_address);
+                    transfer::public_transfer(winner_amount, challenger_address);
+                };
             };
-        };
         rps.distributed = true; 
         }
     }
