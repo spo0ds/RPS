@@ -24,7 +24,7 @@ module rps::rps{
     const ONEONONE: u8 = 5;
 
     /*//////////////////////////////////////////////////////////////////////////
-                                     ERROR
+                                     ERRORS
     ////////////////////////////////////////////////////////////////////////// */
 
     const ENotStakedAmount: u64 = 6;
@@ -39,6 +39,7 @@ module rps::rps{
     const EHashNotMatched:u64 = 15;
     const EChallengerSameAsCreator:u64 = 16;
     const EZamePaused: u64 = 17;
+    const EPlayer2AlreadyPlayed: u64 = 18;
 
     /// @dev It is the type of witness and is intended to be used only once
 
@@ -294,7 +295,7 @@ module rps::rps{
     * @param whitelisted is the shared object id of whitelist token
     * @param game_info is the shared object which shows the details of protocol admin, protocol fee and state of the game
     */
-    public entry fun create_game<T>(challenger:Option<address>,message:Option<string::String>, player_one_move: vector<u8>,stakes:u64, coin: Coin<T>, type: u8, gameList_object: &mut GameList, whitelisted: &WhiteListedTokens, game_info: &GameInfo, ctx: &mut TxContext){
+    public entry fun create_game<T>(challenger:Option<address>, message:Option<string::String>, player_one_move: vector<u8>, stakes:u64, coin: Coin<T>, type: u8, gameList_object: &mut GameList, whitelisted: &WhiteListedTokens, game_info: &GameInfo, ctx: &mut TxContext){
         assert!(game_info.pause == false, EZamePaused);
         assert!(stakes > 0, EZeroStakedNotAllowed);
         assert!(vector::contains(&whitelisted.list, &type_name::get<T>()) == true, ECoinNotWhiteListed);
@@ -350,7 +351,7 @@ module rps::rps{
     * @param gameList_object is Shared Object ID to track all the created Game and its count
     * @param game_info is the Shared object which shows the details of protocol admin, protocol fee and state of the game
     */
-    public entry fun select_winner<T>(_cap: &RPSGameCap,child_id: ID, salt:vector<u8> ,gameList_object: &mut GameList, game_info: &GameInfo, ctx: &mut TxContext) {
+    public entry fun select_winner<T>(_cap: &RPSGameCap, child_id: ID, salt:vector<u8>, gameList_object: &mut GameList, game_info: &GameInfo, ctx: &mut TxContext) {
         mutate_winner(
             ofield::borrow_mut<ID, RPSGame<T>>(&mut gameList_object.id, child_id),
             salt,
@@ -374,7 +375,7 @@ module rps::rps{
             challenger: _,
             message: _,
             player_one_move: _,
-            player_two_move: _,
+            player_two_move,
             winner: _,
             stakes: _,
             balance,
@@ -383,6 +384,7 @@ module rps::rps{
         } = ofield::remove(&mut parent.id, child_id);
         assert!(creator == tx_context::sender(ctx), ENotCreator);
         assert!(distributed == false, EGameFinishedAlready);
+        assert!(player_two_move !=  option::none(), EPlayer2AlreadyPlayed);
         let coin = sui::coin::from_balance(balance, ctx);
         sui::transfer::public_transfer(coin, creator);
         object::delete(id);
