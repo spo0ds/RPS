@@ -255,7 +255,7 @@ module rps::rps{
     * @param type Challenge type ie 1. ONEONONE 2. FRIENDONLY 3. FREEFORALL
     * @param gameList_object is Shared Object 
     * @param whitelisted is the shared object id of whitelist token
-    * @addresses collection of friend address in vector  
+    * @param game_info is the private object which shows the details of protocol admin, protocol fee and state of the game
     */
     public entry fun create_game<T>(challenger:Option<address>,message:Option<string::String>, player_one_move: vector<u8>,stakes:u64, coin: Coin<T>, type: u8, gameList_object: &mut GameList, whitelisted: &WhiteListedTokens, game_info: &GameInfo, ctx: &mut TxContext){
         assert!(game_info.pause == false, EZamePaused);
@@ -283,6 +283,18 @@ module rps::rps{
         gameList_object.rps_game_count = gameList_object.rps_game_count + 1;
     }
 
+    /*//////////////////////////////////////////////////////////////////////////
+                               PLAY RPS GAME
+    ////////////////////////////////////////////////////////////////////////// */
+    /**
+    * @dev Play the RPS Game According to the challenger TYPE
+    * @param child_ID is the ID of the created RPS Game object.
+    * @param player_move is the move of the Second Player ie. ROCK / PAPER / SCISSORS
+    * @param coin is the particular amount that Second Player want to Stake and play and it is of Generic Type 
+    * @param whitelisted is the share object ID to get the whiteListed Token details
+    * @param game_info is the private object which shows the details of protocol admin, protocol fee and state of the game
+    */
+
     public entry fun play_game<T>(child_id: ID, parent: &mut GameList, player_move:u8, coin:Coin<T>, friendlist: &FriendList, whitelisted: &WhiteListedTokens, game_info: &GameInfo, ctx: &mut TxContext){
          mutate_move(ofield::borrow_mut<ID, RPSGame<T>>(
             &mut parent.id,
@@ -290,6 +302,17 @@ module rps::rps{
         ), player_move, coin , friendlist, tx_context::sender(ctx), whitelisted, game_info); 
     }
 
+    /*//////////////////////////////////////////////////////////////////////////
+                               SELECT WINNER 
+    ////////////////////////////////////////////////////////////////////////// */
+    /**
+    * @dev select winner determine the particular RPS Game Winner
+    * @param _cap is the capability ID only admin can select_winner cause RPSGameCap is transfer to admin
+    * @param child_id is the created game RPS object ID
+    * @param salt is secret key to hide the RPS game creator moves ie Player One move
+    * @param gameList_object is Shared Object ID to track all the created Game and its count
+    * @param game_info is the private object which shows the details of protocol admin, protocol fee and state of the game
+    */
     public entry fun select_winner<T>(_cap: &RPSGameCap,child_id: ID, salt:vector<u8> ,gameList_object: &mut GameList, game_info: &GameInfo, ctx: &mut TxContext) {
         mutate_winner(
             ofield::borrow_mut<ID, RPSGame<T>>(&mut gameList_object.id, child_id),
@@ -299,6 +322,14 @@ module rps::rps{
         );
     }
 
+    /*//////////////////////////////////////////////////////////////////////////
+                               CANCEL THE RPS GAME  
+    ////////////////////////////////////////////////////////////////////////// */
+    /**
+    * @dev Creator can Cancel the created RPS Game 
+    * @param parent is Shared Object ID to track all the created Game and its count
+    * @param child_id is created RPS game ID
+    */
     entry public fun cancel_game<T>(parent: &mut GameList, child_id: ID, ctx: &mut TxContext) {
         let RPSGame<T> {
             id,
@@ -320,6 +351,19 @@ module rps::rps{
         object::delete(id);
     }
 
+    /*//////////////////////////////////////////////////////////////////////////
+                               MUTATE_MOVE
+    ////////////////////////////////////////////////////////////////////////// */
+    /**
+    * @dev MUTATE_MOVE is the basically used for Dynamically object Field Purpose to link in overall GameList Shared Object
+    * @param rps is the RPSGame object ID 
+    * @param player_move is the move of the Second Player ie. ROCK / PAPER / SCISSORS 
+    * @param coin is the particular amount that Second Player want to Stake and play and it is of Generic Type 
+    * @param friendlist is the sharedObject ID to get the collection of the creator FriendLIst
+    * @param challenger is the player two addresses who is about to play game
+    * @param whitelisted is the share object ID to get the whiteListed Token details
+    * @param game_info is the private object which shows the details of protocol admin, protocol fee and state of the game
+    */
     fun mutate_move<T>(rps: &mut RPSGame<T>, player_move: u8, coin:Coin<T>, friendlist: & FriendList, challenger: address, whitelisted: &WhiteListedTokens, game_info: &GameInfo) {
         assert!(game_info.pause == false, EZamePaused);
         assert!(vector::contains(&whitelisted.list, &type_name::get<T>()) == true, ECoinNotWhiteListed);        
@@ -341,6 +385,15 @@ module rps::rps{
         coin::put(&mut rps.balance, coin);
     }
 
+    /*//////////////////////////////////////////////////////////////////////////
+                               MUTATE_WINNER
+    ////////////////////////////////////////////////////////////////////////// */
+    /** 
+    * @dev mutate_winner mutate the DOF object field for select winner function call
+    * @param rps is the RPSGame object ID 
+    * @param salt is secret key to hide the RPS game creator moves ie Player One move
+    * @param game_info is the private object which shows the details of protocol admin, protocol fee and state of the game
+    */
     fun mutate_winner<T>(rps: &mut RPSGame<T>, salt: vector<u8>, game_info: &GameInfo, ctx: &mut TxContext) {
         let RPSGame<T> {
                     id: _,
@@ -383,13 +436,31 @@ module rps::rps{
         rps.distributed = true; 
     }
 
-
+    /*//////////////////////////////////////////////////////////////////////////
+                        CALCULATE THE WINNER 
+    ////////////////////////////////////////////////////////////////////////// */
+    /**
+    * @dev get the move from both player can
+    * @param one move of the player one represent in u8 type.
+    * @param two move of the player  two represent in u8 type.
+    * @return the move select is winner of not in boolean type.
+    */
     fun play(one: u8, two: u8): bool{
         if (one == ROCK && two == SCISSORS) { true }
         else if (one == PAPER && two == ROCK) { true }
         else if (one == SCISSORS && two == PAPER) {true }
         else { false }
     }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                        FIND THE GESTURE
+    ////////////////////////////////////////////////////////////////////////// */
+    /** 
+    * @dev basically this function is used to hide player one move and calculate the hash and salt and select the move provide by player one
+    * @param salt is secret key to hide the RPS game creator moves ie Player One move
+    * @param Hash generated using that salt key 
+    * @return the move based on the salt and hash
+    */
 
     fun find_gesture(salt: vector<u8>, hash: &vector<u8>): u8 {
         if (hash(ROCK, salt) == *hash) {
@@ -402,6 +473,16 @@ module rps::rps{
            HashNotMatched
         }
     }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                        HASH FUNCTION
+    ////////////////////////////////////////////////////////////////////////// */
+    /** 
+    * @dev SHA256 is used to hash the salt and gesture 
+    * @param gesture is the move type ROCK/PAPER/SCISSORS
+    * @param salt is the key represent in vector<u8>
+    * @return sha256 hash of gesture and salt embedded hash
+    */
 
     fun hash(gesture: u8, salt: vector<u8>): vector<u8> {
         vector::push_back(&mut salt, gesture);
