@@ -11,6 +11,7 @@ module rps::rps{
     use std::hash;
     use std::type_name::{Self, TypeName};
     use sui::math;
+    use sui::clock::{Self, Clock};
 
     /*//////////////////////////////////////////////////////////////////////////
                                     CONSTANTS 
@@ -55,6 +56,7 @@ module rps::rps{
         player_two_move: Option<u8>,
         winner : Option<address>,
         stakes:u64,
+        timestamp: u64,
         balance: Balance<T>,
         distributed: bool,
         type: u8,
@@ -295,7 +297,8 @@ module rps::rps{
     * @param whitelisted is the shared object id of whitelist token
     * @param game_info is the shared object which shows the details of protocol admin, protocol fee and state of the game
     */
-    public entry fun create_game<T>(challenger:Option<address>, message:Option<string::String>, player_one_move: vector<u8>, stakes:u64, coin: Coin<T>, type: u8, gameList_object: &mut GameList, whitelisted: &WhiteListedTokens, game_info: &GameInfo, ctx: &mut TxContext){
+
+    public entry fun create_game<T>(challenger:Option<address>,message:Option<string::String>, player_one_move: vector<u8>,stakes:u64, coin: Coin<T>, type: u8, gameList_object: &mut GameList, whitelisted: &WhiteListedTokens, game_info: &GameInfo, clock: &Clock, ctx: &mut TxContext){
         assert!(game_info.pause == false, EZamePaused);
         assert!(stakes > 0, EZeroStakedNotAllowed);
         assert!(vector::contains(&whitelisted.list, &type_name::get<T>()) == true, ECoinNotWhiteListed);
@@ -312,6 +315,7 @@ module rps::rps{
             player_two_move: option::none(),
             winner: option::none(),
             stakes: stakes,
+            timestamp: clock::timestamp_ms(clock),
             balance: coin::into_balance(coin),
             distributed: false,
             type: type,
@@ -333,11 +337,11 @@ module rps::rps{
     * @param game_info is the shared object which shows the details of protocol admin, protocol fee and state of the game
     */
 
-    public entry fun play_game<T>(child_id: ID, parent: &mut GameList, player_move:u8, coin:Coin<T>, friendlist: &FriendList, whitelisted: &WhiteListedTokens, game_info: &GameInfo, ctx: &mut TxContext){
+    public entry fun play_game<T>(child_id: ID, parent: &mut GameList, player_move:u8, coin:Coin<T>, friendlist: &FriendList, whitelisted: &WhiteListedTokens, game_info: &GameInfo, clock: &Clock, ctx: &mut TxContext){
          mutate_move(ofield::borrow_mut<ID, RPSGame<T>>(
             &mut parent.id,
             child_id,
-        ), player_move, coin , friendlist, tx_context::sender(ctx), whitelisted, game_info); 
+        ), player_move, coin , friendlist, tx_context::sender(ctx), whitelisted, game_info, clock); 
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -351,11 +355,12 @@ module rps::rps{
     * @param gameList_object is Shared Object ID to track all the created Game and its count
     * @param game_info is the Shared object which shows the details of protocol admin, protocol fee and state of the game
     */
-    public entry fun select_winner<T>(_cap: &RPSGameCap, child_id: ID, salt:vector<u8>, gameList_object: &mut GameList, game_info: &GameInfo, ctx: &mut TxContext) {
+    public entry fun select_winner<T>(_cap: &RPSGameCap,child_id: ID, salt:vector<u8> ,gameList_object: &mut GameList, game_info: &GameInfo, clock: &Clock, ctx: &mut TxContext) {
         mutate_winner(
             ofield::borrow_mut<ID, RPSGame<T>>(&mut gameList_object.id, child_id),
             salt,
             game_info,
+            clock,
             ctx,
         );
     }
@@ -378,6 +383,7 @@ module rps::rps{
             player_two_move,
             winner: _,
             stakes: _,
+            timestamp: _,
             balance,
             distributed,
             type:_,
@@ -403,7 +409,7 @@ module rps::rps{
     * @param whitelisted is the shared object ID to get the whiteListed Token details
     * @param game_info is the shared object which shows the details of protocol admin, protocol fee and state of the game
     */
-    fun mutate_move<T>(rps: &mut RPSGame<T>, player_move: u8, coin:Coin<T>, friendlist: & FriendList, challenger: address, whitelisted: &WhiteListedTokens, game_info: &GameInfo) {
+    fun mutate_move<T>(rps: &mut RPSGame<T>, player_move: u8, coin:Coin<T>, friendlist: & FriendList, challenger: address, whitelisted: &WhiteListedTokens, game_info: &GameInfo, clock: &Clock) {
         assert!(game_info.pause == false, EZamePaused);
         assert!(vector::contains(&whitelisted.list, &type_name::get<T>()) == true, ECoinNotWhiteListed);        
         assert!(coin::value(&coin) == rps.stakes, ENotStakedAmount);
@@ -411,15 +417,18 @@ module rps::rps{
         if (rps.type == FRIENDONLY) {
             assert!(vector::contains(&friendlist.address, &challenger) == true, ENotFriend);
             rps.challenger = option::some(challenger); 
-            rps.player_two_move = option::some(player_move);      
+            rps.player_two_move = option::some(player_move); 
+            rps.timestamp = clock::timestamp_ms(clock);     
         }
         else if(rps.type == ONEONONE) {
             assert!(rps.challenger == option::some(challenger), ENotChallenger);
             rps.player_two_move = option::some(player_move);
+            rps.timestamp = clock::timestamp_ms(clock);  
         }
         else {
             rps.challenger = option::some(challenger);
             rps.player_two_move = option::some(player_move);
+            rps.timestamp = clock::timestamp_ms(clock);    
         };
         coin::put(&mut rps.balance, coin);
     }
@@ -433,7 +442,7 @@ module rps::rps{
     * @param salt is secret key to hide the RPS game creator moves ie Player One move
     * @param game_info is the shared object which shows the details of protocol admin, protocol fee and state of the game
     */
-    fun mutate_winner<T>(rps: &mut RPSGame<T>, salt: vector<u8>, game_info: &GameInfo, ctx: &mut TxContext) {
+    fun mutate_winner<T>(rps: &mut RPSGame<T>, salt: vector<u8>, game_info: &GameInfo, clock: &Clock, ctx: &mut TxContext) {
         let RPSGame<T> {
                     id: _,
                     creator:_,
@@ -443,10 +452,18 @@ module rps::rps{
                     player_two_move,
                     winner: _,
                     stakes,
+                    timestamp,
                     balance: _,
                     distributed,
                     type: _,
                 } = rps;
+        if(*distributed == false && *timestamp + clock::timestamp_ms(clock)>= 86400000 ) {
+            let total_balance = balance::value(&rps.balance);
+            let challenger_address = *(option::borrow(challenger));
+            let coin = coin::take(&mut rps.balance, total_balance, ctx);
+            transfer::public_transfer(coin, challenger_address);
+        }
+        else {
         assert!(*distributed == false, EGameFinishedAlready);
         let gesture_one = find_gesture(salt, &rps.player_one_move);
         assert!(gesture_one != HashNotMatched, EHashNotMatched);
@@ -473,6 +490,7 @@ module rps::rps{
             };
         };
         rps.distributed = true; 
+        }
     }
 
     /*//////////////////////////////////////////////////////////////////////////
