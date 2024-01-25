@@ -47,6 +47,7 @@ module rps::rps{
     struct RPS has drop {}
 
     /// @dev It is the RPS Game Object Details 
+
     struct RPSGame<phantom T> has key,store{
         id: UID,
         creator:address,
@@ -63,24 +64,28 @@ module rps::rps{
     }
 
     /// @dev GameList contains the rps_game_count and used for Dynamical Object Properties
+
     struct GameList has key{
         id: UID,
         rps_game_count:  u64,
     }
 
     /// @dev FriendList contains array of Friend that user consist with
+
     struct FriendList has key {
         id: UID,
         address: vector<address>,
     }
 
     /// @dev Token that are allowed to stake should whiteList
+
     struct WhiteListedTokens has key {
         id: UID,
         list: vector<TypeName>,
     }
 
-    /// @dev GameInfo represent the state of GameInfo, treasury_address and protocol_fee
+    /// @dev GameInfo represent the state of Game, treasury_address and protocol_fee
+
     struct GameInfo has key{
         id: UID,
         pause: bool,
@@ -90,11 +95,13 @@ module rps::rps{
 
 
     /// @dev Capability for User to update, add, delete new friend 
+
     struct FriendCap has key{
         id: UID, 
     }
 
-    /// @dev Capability for deployer or Admin to select winner 
+    /// @dev Capability for deployer or Admin to pause/unpause a game, change protocol fee and whitelist token. 
+
     struct RPSGameCap has key{
         id: UID, 
     }
@@ -107,6 +114,7 @@ module rps::rps{
     * @dev emit ShareObject {GameList, WhiteListedTokens} and transfer {RPSGameCap, TreasuryCap} to deployer
     * @param witness of the RPS which allows to drop and can be called only once
     */
+
     fun init(witness: RPS, ctx:&mut TxContext) {
         let id = object::new(ctx);
         transfer::share_object(GameList {
@@ -144,12 +152,14 @@ module rps::rps{
     /*//////////////////////////////////////////////////////////////////////////
                                      MINT NEW TOKEN
     ////////////////////////////////////////////////////////////////////////// */
+
     /**
     * @dev allows to min the new token
     * @param treasury_cap capablity to mint the new token
     * @param amount number of token to be minted 
     * @param recipient address of recipient who get the desired token
     */
+
     public entry fun mint(
         treasury_cap: &mut TreasuryCap<RPS>, 
         amount: u64, 
@@ -162,6 +172,7 @@ module rps::rps{
     /*//////////////////////////////////////////////////////////////////////////
                                 SET TREASURY OWNER 
     ////////////////////////////////////////////////////////////////////////// */
+    
     /**
     * @dev allow to set the treasury owner 
     * @param _cap Capability of RPSGame 
@@ -176,12 +187,14 @@ module rps::rps{
     /*//////////////////////////////////////////////////////////////////////////
                                 SET PROTOCOL FEE  
     ////////////////////////////////////////////////////////////////////////// */
+    
     /** 
     * @dev allow to set the protocol fee 
     * @param _cap Capability of RPSGame 
     * @param game_info is the Shared object which shows the details of protocol admin, protocol fee and state of the game
     * @param new_fee_percentage is the protocol fee 
     */
+    
     public fun set_protocol_fee(_cap:&RPSGameCap, game_info: &mut GameInfo, new_fee_percentage: u64){
         game_info.protocol_fee = new_fee_percentage;
     }
@@ -189,6 +202,7 @@ module rps::rps{
     /*//////////////////////////////////////////////////////////////////////////
                                 PAUSE GAME   
     ////////////////////////////////////////////////////////////////////////// */
+   
     /**
     * @dev allow to pause the game
     * @param _cap Capability of RPSGame
@@ -199,14 +213,16 @@ module rps::rps{
         game_info.pause = true;
     }
 
-     /*//////////////////////////////////////////////////////////////////////////
+    /*//////////////////////////////////////////////////////////////////////////
                                 UNPAUSE GAME   
     ////////////////////////////////////////////////////////////////////////// */
+    
     /**
     * @dev allow to unpause the game
     * @param _cap Capability of RPSGame
     * @param game_info is the Shared object which shows the details of protocol admin, protocol fee and state of the game
     */
+    
     public fun unpause_game(_cap:&RPSGameCap, game_info: &mut GameInfo){
         game_info.pause = false;
     }
@@ -215,11 +231,13 @@ module rps::rps{
     /*//////////////////////////////////////////////////////////////////////////
                                    WHITELIST NEW TOKEN 
     ////////////////////////////////////////////////////////////////////////// */
+    
     /**
     * @dev allows to append the token_id in WhiteListedToken shared object
     * @param _cap RPSGamecap Capability 
     * @param whitelisted: Shareobject Id of WhiteListed Token
     */
+    
     public fun update_whitelist_token<T>(_cap:&RPSGameCap, whitelisted: &mut WhiteListedTokens) {
         vector::push_back(&mut whitelisted.list, type_name::get<T>());
     }
@@ -227,6 +245,7 @@ module rps::rps{
     /*//////////////////////////////////////////////////////////////////////////
                                    REMOVE THE EXISTING TOKEN
     ////////////////////////////////////////////////////////////////////////// */
+    
     /**
     * @dev allows to remove the token_id from WhiteListedToken shared object
     * @param _cap RPSGamecap Capability 
@@ -242,7 +261,9 @@ module rps::rps{
     /*//////////////////////////////////////////////////////////////////////////
                                   CREATE FRIENDLIST SHARED OBJECT ID
     ////////////////////////////////////////////////////////////////////////// */
+    
     /// @dev Create { FriendList Shared Object Id } and transfer `FriendCap` to caller
+    
     public entry fun create_friendlist(ctx:&mut TxContext){
          transfer::transfer(FriendCap{
             id: object::new(ctx)
@@ -256,12 +277,14 @@ module rps::rps{
     /*//////////////////////////////////////////////////////////////////////////
                                   UDPATE FRIEND LIST 
     ////////////////////////////////////////////////////////////////////////// */
+    
     /**
     * @dev update the friend list 
     * @param _cap FriendCap Capability to trigger the update_to_myfriend_list
     * @param friendlist share object of invidual user {note every user got their different friendlist share object}
     * @addresses collection of friend in vector to pushin friendlist
     */
+    
     public entry fun update_to_myfriend_list(_cap:&FriendCap, friendlist: &mut FriendList, addresses: vector<address>) {
         vector::append(&mut friendlist.address, addresses); 
     }
@@ -269,6 +292,7 @@ module rps::rps{
     /*//////////////////////////////////////////////////////////////////////////
                         REMOVE FRIEND FROM FRIENDLIST SHARED OBJECT
     ////////////////////////////////////////////////////////////////////////// */
+    
     /**
     * @dev remove the friend the friend list 
     * @param _cap FriendCap Capability to trigger the remove_friend
@@ -285,6 +309,7 @@ module rps::rps{
     /*//////////////////////////////////////////////////////////////////////////
                                CREATE NEW RPS GAME
     ////////////////////////////////////////////////////////////////////////// */
+    
     /**
     * @dev Create new RPS Game according to the Challenger Type
     * @param challenger It is the challenger address where it set according to challenger Type ie. 1. ONEONONE 2.FRIENDONLY 3. FREEFORALL
@@ -328,6 +353,7 @@ module rps::rps{
     /*//////////////////////////////////////////////////////////////////////////
                                PLAY RPS GAME
     ////////////////////////////////////////////////////////////////////////// */
+    
     /**
     * @dev Play the RPS Game According to the challenger TYPE
     * @param child_ID is the ID of the created RPS Game object.
@@ -347,6 +373,7 @@ module rps::rps{
     /*//////////////////////////////////////////////////////////////////////////
                                SELECT WINNER 
     ////////////////////////////////////////////////////////////////////////// */
+    
     /**
     * @dev select winner determine the particular RPS Game Winner
     * @param _cap is the capability ID only admin can select_winner cause RPSGameCap is transfer to admin
@@ -355,6 +382,7 @@ module rps::rps{
     * @param gameList_object is Shared Object ID to track all the created Game and its count
     * @param game_info is the Shared object which shows the details of protocol admin, protocol fee and state of the game
     */
+    
     public entry fun select_winner<T>(child_id: ID, salt:vector<u8>, gameList_object: &mut GameList, game_info: &GameInfo, clock: &Clock, ctx: &mut TxContext) {
         mutate_winner(
             ofield::borrow_mut<ID, RPSGame<T>>(&mut gameList_object.id, child_id),
@@ -368,11 +396,13 @@ module rps::rps{
     /*//////////////////////////////////////////////////////////////////////////
                                CANCEL THE RPS GAME  
     ////////////////////////////////////////////////////////////////////////// */
+    
     /**
     * @dev Creator can Cancel the created RPS Game 
     * @param parent is Shared Object ID to track all the created Game and its count
     * @param child_id is created RPS game ID
     */
+    
     entry public fun cancel_game<T>(parent: &mut GameList, child_id: ID, ctx: &mut TxContext) {
         let RPSGame<T> {
             id,
@@ -391,6 +421,7 @@ module rps::rps{
         assert!(creator == tx_context::sender(ctx), ENotCreator);
         assert!(distributed == false, EGameFinishedAlready);
         assert!(player_two_move == option::none(), EPlayer2AlreadyPlayed);
+        parent.rps_game_count = parent.rps_game_count - 1;
         let coin = sui::coin::from_balance(balance, ctx);
         sui::transfer::public_transfer(coin, creator);
         object::delete(id);
@@ -399,6 +430,7 @@ module rps::rps{
     /*//////////////////////////////////////////////////////////////////////////
                                MUTATE_MOVE
     ////////////////////////////////////////////////////////////////////////// */
+    
     /**
     * @dev MUTATE_MOVE is the basically used for Dynamically object Field Purpose to link in overall GameList Shared Object
     * @param rps is the RPSGame object ID 
@@ -409,6 +441,7 @@ module rps::rps{
     * @param whitelisted is the shared object ID to get the whiteListed Token details
     * @param game_info is the shared object which shows the details of protocol admin, protocol fee and state of the game
     */
+    
     fun mutate_move<T>(rps: &mut RPSGame<T>, player_move: u8, coin:Coin<T>, friendlist: & FriendList, challenger: address, whitelisted: &WhiteListedTokens, game_info: &GameInfo, clock: &Clock) {
         assert!(game_info.pause == false, EZamePaused);
         assert!(vector::contains(&whitelisted.list, &type_name::get<T>()) == true, ECoinNotWhiteListed);        
@@ -434,12 +467,14 @@ module rps::rps{
     /*//////////////////////////////////////////////////////////////////////////
                                MUTATE_WINNER
     ////////////////////////////////////////////////////////////////////////// */
+    
     /** 
     * @dev mutate_winner mutate the DOF object field for select winner function call
     * @param rps is the RPSGame object ID 
     * @param salt is secret key to hide the RPS game creator moves ie Player One move
     * @param game_info is the shared object which shows the details of protocol admin, protocol fee and state of the game
     */
+    
     fun mutate_winner<T>(rps: &mut RPSGame<T>, salt: vector<u8>, game_info: &GameInfo, clock: &Clock, ctx: &mut TxContext) {
         let RPSGame<T> {
                     id: _,
@@ -456,17 +491,15 @@ module rps::rps{
                     type: _,
                 } = rps;
         assert!(*distributed == false, EGameFinishedAlready);
+        let total_balance = balance::value(&rps.balance);
+        let challenger_address = *(option::borrow(challenger));
         if(*player_two_move != option::none() && *timestamp + clock::timestamp_ms(clock)>= 86_400_000) {
-            let total_balance = balance::value(&rps.balance);
-            let challenger_address = *(option::borrow(challenger));
             let coin = coin::take(&mut rps.balance, total_balance, ctx);
             transfer::public_transfer(coin, challenger_address);
         }else {
             let gesture_one = find_gesture(salt, &rps.player_one_move);
             assert!(gesture_one != HashNotMatched, EHashNotMatched);
             let gesture_two = *option::borrow(player_two_move);
-            let total_balance = balance::value(&rps.balance);
-            let challenger_address = *(option::borrow(challenger));
             if (gesture_one == gesture_two){
                 let coin = coin::take(&mut rps.balance, total_balance, ctx);
                 transfer::public_transfer(coin::split(&mut coin, *stakes, ctx), rps.creator);
@@ -477,7 +510,6 @@ module rps::rps{
                 transfer::public_transfer(fee_amount, game_info.treasury_address);
                 let winner_amount = coin::take(&mut rps.balance, math::diff(total_balance, protocol_amount) , ctx);
                 let playerMove = play(gesture_one, *option::borrow(player_two_move));
-                let challenger_address = *(option::borrow(challenger));
                 if (playerMove) {
                     rps.winner = option::some(rps.creator);
                     transfer::public_transfer(winner_amount, rps.creator);
@@ -493,12 +525,14 @@ module rps::rps{
     /*//////////////////////////////////////////////////////////////////////////
                         CALCULATE THE WINNER 
     ////////////////////////////////////////////////////////////////////////// */
+    
     /**
     * @dev get the move from both player can
     * @param one move of the player one represent in u8 type.
     * @param two move of the player  two represent in u8 type.
     * @return the move select is winner of not in boolean type.
     */
+    
     fun play(one: u8, two: u8): bool{
         if (one == ROCK && two == SCISSORS) { true }
         else if (one == PAPER && two == ROCK) { true }
@@ -509,6 +543,7 @@ module rps::rps{
     /*//////////////////////////////////////////////////////////////////////////
                         FIND THE GESTURE
     ////////////////////////////////////////////////////////////////////////// */
+    
     /** 
     * @dev basically this function is used to hide player one move and calculate the hash and salt and select the move provide by player one
     * @param salt is secret key to hide the RPS game creator moves ie Player One move
@@ -531,6 +566,7 @@ module rps::rps{
     /*//////////////////////////////////////////////////////////////////////////
                         HASH FUNCTION
     ////////////////////////////////////////////////////////////////////////// */
+    
     /** 
     * @dev SHA256 is used to hash the salt and gesture 
     * @param gesture is the move type ROCK/PAPER/SCISSORS
