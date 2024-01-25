@@ -13,8 +13,8 @@ async function updateToken() {
             tx.object(RPSCapId),
             tx.object(WhiteListedTokensId)
         ],
-        typeArguments: [`${packageId}::rps::RPS`],
-        // typeArguments: ["0x2::sui::SUI"],
+        // typeArguments: [`${packageId}::rps::RPS`],
+        typeArguments: ["0x2::sui::SUI"],
     });
 
     const result = await client.signAndExecuteTransactionBlock({

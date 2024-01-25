@@ -45,6 +45,7 @@ const getPackageId = async () => {
         let TreasuryCapId;
         let WhiteListedTokensId;
         let CoinMetadataId;
+        let GameInfoId;
         // console.log(`packaged ID : ${packageId}`);
         await sleep(10000);
 
@@ -85,13 +86,16 @@ const getPackageId = async () => {
                 if (await item.objectType == `0x2::coin::CoinMetadata<${packageId}::rps::RPS>`) {
                     CoinMetadataId = String(item.objectId);
                 }
+                if (await item.objectType == `${packageId}::rps::GameInfo`) {
+                    GameInfoId = String(item.objectId);
+                }
             }
         }
-        return { packageId, GameListId, RPSCapId, TreasuryCapId, WhiteListedTokensId, CoinMetadataId };
+        return { packageId, GameListId, RPSCapId, TreasuryCapId, WhiteListedTokensId, CoinMetadataId, GameInfoId };
     } catch (error) {
         // Handle potential errors if the promise rejects
         console.error(error);
-        return { packageId: '', GameListId: '', RPSCapId: '', TreasuryCapId: '', WhiteListedTokensId: '', CoinMetadataId: '' };
+        return { packageId: '', GameListId: '', RPSCapId: '', TreasuryCapId: '', WhiteListedTokensId: '', CoinMetadataId: '', GameInfoId: '' };
     }
 };
 

@@ -3,6 +3,7 @@ import * as dotenv from 'dotenv';
 import getExecStuff from '../utils/execstuff';
 import { sha256 } from '@noble/hashes/sha256';
 import { packageId, GameListId, WhiteListedTokensId, GameInfoId } from '../utils/packageInfo';
+import { SUI_CLOCK_OBJECT_ID } from "@mysten/sui.js/utils";
 dotenv.config();
 
 // string => hex => sha256 => hex value => passss
@@ -28,20 +29,20 @@ async function createRpsGame(amount: number) {
         // Create a Uint8Array from the array of numbers
         return new Uint8Array(hex);
     };
-    const hashDigest = sha256(stringToHex("ram", 0));
+    const hashDigest = sha256(stringToHex("ram", 1));
     console.log(`hashDigest: ${hashDigest}`);
     console.log(typeof hashDigest);
     const { keypair, client } = getExecStuff();
     const tx = new TransactionBlock();
     // for rps coin
-    let coinId: string = (await client.getCoins({
-        owner: keypair.getPublicKey().toSuiAddress(),
-        coinType: `${packageId}::rps::RPS`,
-    })).data[0].coinObjectId;
-    const coin = tx.splitCoins(coinId, [tx.pure(amount)]);
+    // let coinId: string = (await client.getCoins({
+    //     owner: keypair.getPublicKey().toSuiAddress(),
+    //     coinType: `${packageId}::rps::RPS`,
+    // })).data[0].coinObjectId;
+    // const coin = tx.splitCoins(coinId, [tx.pure(amount)]);
 
     // for sui only
-    // const coin = tx.splitCoins(tx.gas, [tx.pure(amount)]);
+    const coin = tx.splitCoins(tx.gas, [tx.pure(amount)]);
 
     tx.moveCall({
         target: `${packageId}::rps::create_game`,
@@ -51,13 +52,14 @@ async function createRpsGame(amount: number) {
             tx.pure(Array.from(hashDigest)),
             tx.pure.u64(10000000),
             coin,
-            tx.pure.u8(10),
+            tx.pure.u8(6),
             tx.object(GameListId),
             tx.object(WhiteListedTokensId),
-            tx.object(GameInfoId)
+            tx.object(GameInfoId),
+            tx.object(SUI_CLOCK_OBJECT_ID),
         ],
-        typeArguments: [`${packageId}::rps::RPS`]
-        // typeArguments: [`0x2::sui::SUI`]
+        // typeArguments: [`${packageId}::rps::RPS`]
+        typeArguments: [`0x2::sui::SUI`]
 
     });
     const result = await client.signAndExecuteTransactionBlock({
@@ -84,7 +86,7 @@ async function createRpsGame(amount: number) {
     for (let i = 0; i < output.length; i++) {
         const item = output[i];
         if (await item.type === 'created') {
-            if (await item.objectType === `${packageId}::rps::RPS`) {
+            if (await item.objectType === `${packageId}::rps::RPSGame<0x2::sui::SUI>`) {
                 RPSId = String(item.objectId);
             }
         }

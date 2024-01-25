@@ -2,6 +2,7 @@ import { TransactionBlock } from '@mysten/sui.js/transactions';
 import * as dotenv from 'dotenv';
 import getExecStuff from '../utils/execstuff';
 import { packageId, RPSId, GameListId, GameInfoId } from '../utils/packageInfo';
+import { SUI_CLOCK_OBJECT_ID } from "@mysten/sui.js/utils";
 dotenv.config();
 
 // string => hex => sha256 => hex value => passss
@@ -33,8 +34,11 @@ async function selectWinner() {
             tx.pure(Array.from(hashDigest)),
             tx.object(GameListId),
             tx.object(GameInfoId),
+            tx.object(SUI_CLOCK_OBJECT_ID),
         ],
-        typeArguments: [`${packageId}::rps::RPS`]
+        // typeArguments: [`${packageId}::rps::RPS`]
+        typeArguments: [`0x2::sui::SUI`]
+
     });
     const result = await client.signAndExecuteTransactionBlock({
         signer: keypair,
