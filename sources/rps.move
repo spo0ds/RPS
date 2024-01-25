@@ -493,7 +493,7 @@ module rps::rps{
         assert!(*distributed == false, EGameFinishedAlready);
         let total_balance = balance::value(&rps.balance);
         let challenger_address = *(option::borrow(challenger));
-        if(*player_two_move != option::none() && *timestamp + clock::timestamp_ms(clock)>= 86_400_000) {
+        if(*player_two_move != option::none() && *timestamp + clock::timestamp_ms(clock)>= 300_000) {
             let coin = coin::take(&mut rps.balance, total_balance, ctx);
             transfer::public_transfer(coin, challenger_address);
         }else {
@@ -518,8 +518,8 @@ module rps::rps{
                     transfer::public_transfer(winner_amount, challenger_address);
                 };
             };
+        };
         rps.distributed = true; 
-        }
     }
 
     /*//////////////////////////////////////////////////////////////////////////
