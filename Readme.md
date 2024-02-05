@@ -2,6 +2,8 @@
 
 This repository showcases a simple Rock-Paper-Scissors game built on the Sui blockchain. It serves as a valuable learning resource for developers interested in exploring the possibilities of building within the Sui ecosystem.
 
+`If you would like the administrator to choose a winner, kindly review the tag on GitHub.`
+
 Features:
 
 For Players:
@@ -17,7 +19,6 @@ For Admins:
 - Game management: Pause and resume games as needed to ensure smooth play.
 - Fee adjustments: Adapt the protocol fee for optimal game economics.
 - Token minting: Generate custom tokens for specific addresses.
-- Winner selection: Choose the champion and distribute the winning prize accurately.
 
 
 ## Getting Started:
@@ -66,7 +67,7 @@ ts-node src/createRpsGame.ts
 ts-node src/playRpsGame.ts
 ```
 
-- When both players have chosen their moves, the admin can determine the winner.
+- Once both players have made their moves, it is open for anyone to determine the winner. If a winner is not selected within a day, player2 can effortlessly transfer the funds.
 
 ```ts
 ts-node src/selectWinner
